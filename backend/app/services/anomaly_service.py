@@ -88,3 +88,43 @@ def detect_transaction_anomalies(
         "anomalies": anomalies,
         "action": action
     }
+
+def scan_tenant_anomalies(db: Session, tenant_id: str, limit: int = 50) -> Dict[str, Any]:
+    """
+    Scans recent transactions for the tenant and flags:
+    - Section 40A(3) cash outflow threshold violations (> ₹10,000)
+    - Double payments
+    - Outlier spikes
+    """
+    txs = db.query(Transaction).filter(
+        Transaction.tenant_id == tenant_id
+    ).order_by(Transaction.transaction_date.desc()).limit(limit).all()
+
+    flagged = []
+    for tx in txs:
+        res = detect_transaction_anomalies(
+            db=db,
+            tenant_id=tenant_id,
+            amount=tx.amount,
+            direction=tx.type,
+            channel=tx.channel,
+            tx_date=tx.transaction_date,
+            reference_number=None, # Don't flag itself as duplicate
+            narration=tx.raw_narration
+        )
+        if res.get("is_anomaly"):
+            flagged.append({
+                "transaction_id": tx.id,
+                "date": str(tx.transaction_date),
+                "amount": float(tx.amount),
+                "description": tx.description,
+                "anomalies": res.get("anomalies", []),
+                "anomaly_score": res.get("anomaly_score", 0.0)
+            })
+
+    return {
+        "tenant_id": tenant_id,
+        "total_anomalies_detected": len(flagged),
+        "flagged_transactions": flagged
+    }
+

@@ -47,3 +47,4 @@ async def test_zero_alternative_llm_providers():
     source_code = inspect.getsource(client)
     for forbidden in ["openai", "anthropic", "google.generativeai", "gemini", "groq", "ollama"]:
         assert forbidden not in source_code.lower(), f"Forbidden provider {forbidden} found in client"
+

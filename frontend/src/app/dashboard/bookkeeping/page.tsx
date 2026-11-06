@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BrainCircuit,
   Play,
@@ -14,10 +14,16 @@ import {
   FileCheck,
   Send,
   HelpCircle,
-  XCircle
+  XCircle,
+  Mic,
+  MicOff,
+  Volume2,
+  Check,
+  RotateCcw
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useVoiceAssistant } from "@/lib/useVoiceAssistant";
 
 export default function BookkeepingPage() {
   const { t } = useLanguage();
@@ -31,6 +37,44 @@ export default function BookkeepingPage() {
   const [activeStep, setActiveStep] = useState<number>(0);
   const [result, setResult] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Voice Assistant State
+  const [voiceParsing, setVoiceParsing] = useState(false);
+  const [voiceExtractedData, setVoiceExtractedData] = useState<any | null>(null);
+
+  const voice = useVoiceAssistant("hi-IN");
+
+  // When speech transcript updates, parse automatically if meaningful
+  const handleStopAndParseVoice = async () => {
+    voice.stopListening();
+    const spokenText = voice.transcript.trim();
+    if (!spokenText) return;
+
+    setVoiceParsing(true);
+    setErrorMsg("");
+
+    try {
+      const res = await api.parseVoiceNarration(spokenText);
+      const data = res.data;
+      setVoiceExtractedData(data);
+
+      // Auto-populate form
+      setNarration(data.suggested_description || spokenText);
+      if (data.amount > 0) {
+        setAmount(String(data.amount));
+      }
+      if (data.direction) {
+        setDirection(data.direction);
+      }
+      if (data.channel) {
+        setChannel(data.channel);
+      }
+    } catch (err: any) {
+      setErrorMsg("Voice parsing notice: " + (err.message || "Could not extract fields"));
+    } finally {
+      setVoiceParsing(false);
+    }
+  };
 
   const presetExamples = [
     {
@@ -77,6 +121,7 @@ export default function BookkeepingPage() {
     setChannel(p.channel);
     setResult(null);
     setErrorMsg("");
+    setVoiceExtractedData(null);
   };
 
   const handleRunWorkflow = async (e: React.FormEvent) => {
@@ -92,9 +137,8 @@ export default function BookkeepingPage() {
     setActiveStep(1);
 
     try {
-      // Step simulation for visual feedback
-      setTimeout(() => setActiveStep(2), 500);
-      setTimeout(() => setActiveStep(3), 1100);
+      setTimeout(() => setActiveStep(2), 400);
+      setTimeout(() => setActiveStep(3), 900);
 
       const res = await api.processWorkflow({
         raw_narration: narration,
@@ -130,7 +174,7 @@ export default function BookkeepingPage() {
             {t("bookkeeping")} — LangGraph Autonomous Agent
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            BharatCode AI model orchestrates multi-agent categorization, confidence routing, and double-entry ledger vouchers.
+            BharatCode AI model orchestrates multi-agent categorization, confidence routing, and double-entry ledger vouchers with voice assistance.
           </p>
         </div>
       </div>
@@ -157,11 +201,79 @@ export default function BookkeepingPage() {
       {/* Main Grid: Input Form + LangGraph Visualizer */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Form Column */}
-        <div className="lg:col-span-5 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-emerald-600" />
-            Transaction Narration Workbench
-          </h2>
+        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+              Transaction Workbench
+            </h2>
+
+            {/* Voice Input Trigger */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (voice.isListening) {
+                    handleStopAndParseVoice();
+                  } else {
+                    voice.startListening();
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                  voice.isListening
+                    ? "bg-rose-600 text-white border-rose-700 animate-pulse shadow-md"
+                    : "bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                }`}
+                title={voice.isListening ? "Stop & Extract Fields" : "Speak narration in Hindi or English"}
+              >
+                {voice.isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                <span>{voice.isListening ? "Stop & Extract" : "Voice Input"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Voice Listening Active Notification */}
+          {voice.isListening && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1.5 animate-pulse">
+              <div className="flex items-center justify-between text-xs font-bold text-rose-800">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+                  Listening: Speak narration in Hindi/English...
+                </span>
+                <button
+                  type="button"
+                  onClick={handleStopAndParseVoice}
+                  className="px-2 py-0.5 bg-rose-600 text-white rounded text-[11px]"
+                >
+                  Done Speaking
+                </button>
+              </div>
+              <p className="text-xs text-rose-900 italic font-mono bg-white/70 p-2 rounded">
+                "{voice.transcript || voice.interimTranscript || "..."}"
+              </p>
+            </div>
+          )}
+
+          {/* Voice Extracted Banner */}
+          {voiceExtractedData && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs">
+              <div className="flex items-center justify-between font-bold text-emerald-900">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Voice Extracted Fields ({Math.round(voiceExtractedData.confidence_score * 100)}% Confidence)
+                </span>
+                <button
+                  onClick={() => setVoiceExtractedData(null)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-slate-700 text-[11px]">
+                Identified: <strong>{voiceExtractedData.direction}</strong> of ₹<strong>{voiceExtractedData.amount}</strong> via <strong>{voiceExtractedData.channel}</strong> ({voiceExtractedData.category})
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleRunWorkflow} className="space-y-4">
             <div>
@@ -173,11 +285,11 @@ export default function BookkeepingPage() {
                 value={narration}
                 onChange={(e) => setNarration(e.target.value)}
                 placeholder="e.g. Sharma ji ko cement aur ret ke liye 25000 cash diya"
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-slate-50/50"
                 required
               />
               <span className="text-[11px] text-slate-400">
-                Accepts natural merchant phrases like "udhari chukta kiya", "kiraya", "petty cash".
+                Accepts spoken vernacular or manual phrases like "udhari chukta kiya", "kiraya", "petty cash".
               </span>
             </div>
 
@@ -190,7 +302,7 @@ export default function BookkeepingPage() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="5000.00"
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
                   required
                 />
               </div>
@@ -200,7 +312,7 @@ export default function BookkeepingPage() {
                 <select
                   value={direction}
                   onChange={(e) => setDirection(e.target.value as any)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-slate-800 font-semibold"
                 >
                   <option value="DEBIT">Outflow / Expense (Debit)</option>
                   <option value="CREDIT">Inflow / Revenue (Credit)</option>
@@ -214,7 +326,7 @@ export default function BookkeepingPage() {
                 <select
                   value={channel}
                   onChange={(e) => setChannel(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-slate-800"
                 >
                   <option value="UPI">UPI (GooglePay / PhonePe / Paytm)</option>
                   <option value="NEFT">NEFT / RTGS</option>
@@ -225,7 +337,7 @@ export default function BookkeepingPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Jurisdiction</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Tax Jurisdiction</label>
                 <div className="pt-2">
                   <label className="inline-flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
                     <input
@@ -234,14 +346,14 @@ export default function BookkeepingPage() {
                       onChange={(e) => setIsInterstate(e.target.checked)}
                       className="rounded text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span>Inter-state (IGST)</span>
+                    <span>Inter-state Supply (IGST)</span>
                   </label>
                 </div>
               </div>
             </div>
 
             {errorMsg && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs">
                 {errorMsg}
               </div>
             )}
@@ -249,17 +361,17 @@ export default function BookkeepingPage() {
             <button
               type="submit"
               disabled={running}
-              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm rounded-lg shadow-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {running ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>LangGraph Agent Executing...</span>
+                  <span>LangGraph Multi-Agent Loop Executing...</span>
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4" />
-                  <span>Run LangGraph Agent</span>
+                  <span>Run Autonomous LangGraph Agent</span>
                 </>
               )}
             </button>
@@ -268,7 +380,7 @@ export default function BookkeepingPage() {
 
         {/* LangGraph Pipeline Visualizer Column */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-slate-900 text-slate-200 p-6 rounded-xl shadow-md border border-slate-800">
+          <div className="bg-slate-900 text-slate-200 p-6 rounded-2xl shadow-xl border border-slate-800">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Cpu className="w-5 h-5 text-emerald-400" />
@@ -287,9 +399,9 @@ export default function BookkeepingPage() {
                 return (
                   <div
                     key={step.num}
-                    className={`p-3 rounded-lg border text-xs transition ${
+                    className={`p-3 rounded-xl border text-xs transition ${
                       isActive
-                        ? "bg-emerald-950/60 border-emerald-500 text-white shadow"
+                        ? "bg-emerald-950/60 border-emerald-500 text-white shadow-lg shadow-emerald-500/20"
                         : isPassed
                         ? "bg-slate-800/80 border-emerald-600/50 text-emerald-300"
                         : "bg-slate-800/40 border-slate-800 text-slate-400"
@@ -313,6 +425,7 @@ export default function BookkeepingPage() {
             {/* Agent Result Display */}
             {result ? (
               <div
+                data-testid="autonomous-decision"
                 className={`p-4 rounded-xl border mt-4 ${
                   result.status === "CONFIRMED"
                     ? "bg-emerald-950/40 border-emerald-500 text-emerald-100"
@@ -334,7 +447,7 @@ export default function BookkeepingPage() {
                       {result.status === "CONFIRMED"
                         ? "Autonomous Decision: Auto-Approved & Ledger Posted"
                         : result.status === "NEEDS_APPROVAL"
-                        ? "Autonomous Checkpoint: Low Confidence — Flagged for Human Review"
+                        ? "Autonomous Decision: Low Confidence — Flagged for Human Review"
                         : "Autonomous Safeguard: Duplicate Transaction Rejected"}
                     </span>
                   </div>
@@ -385,7 +498,7 @@ export default function BookkeepingPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-slate-500 text-xs">
-                Select an example above or type a merchant narration to watch the LangGraph multi-agent loop execute.
+                Speak a narration via microphone or select an example above to watch the LangGraph multi-agent loop execute.
               </div>
             )}
           </div>
@@ -394,4 +507,3 @@ export default function BookkeepingPage() {
     </div>
   );
 }
-

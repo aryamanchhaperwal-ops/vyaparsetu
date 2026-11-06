@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { api, Transaction, Tenant } from "@/lib/api";
 import { useLanguage } from "@/lib/LanguageContext";
+import StatementImportModal from "@/components/StatementImportModal";
 
 export default function TransactionsPage() {
   const { t } = useLanguage();
@@ -29,6 +30,7 @@ export default function TransactionsPage() {
 
   // Modals state
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [manualForm, setManualForm] = useState({
     transaction_date: new Date().toISOString().split("T")[0],
     description: "",
@@ -159,24 +161,33 @@ export default function TransactionsPage() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Primary Statement Ingestion Pipeline Modal Trigger */}
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-bold text-emerald-800 shadow-sm transition-all"
+          >
+            <Upload className="w-4 h-4 text-emerald-600" />
+            <span>Import Statement (Preview & Review)</span>
+          </button>
+
           {/* CSV File Upload Input */}
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition-all">
             <Upload className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Upload CSV</span>
+            <span>Quick CSV</span>
             <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
           </label>
 
           {/* Excel File Upload Input */}
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition-all">
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Upload Excel</span>
+            <span>Quick Excel</span>
             <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="hidden" />
           </label>
 
           {/* PDF File Upload Input */}
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition-all">
             <FileText className="w-3.5 h-3.5 text-teal-600" />
-            <span>Upload PDF</span>
+            <span>Quick PDF</span>
             <input type="file" accept=".pdf" onChange={handlePDFUpload} className="hidden" />
           </label>
 
@@ -451,6 +462,16 @@ export default function TransactionsPage() {
           </div>
         </div>
       )}
+
+      {/* Two-Phase Statement Import Modal */}
+      <StatementImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(msg) => {
+          setUploadMessage(msg);
+          fetchTransactions();
+        }}
+      />
     </div>
   );
 }

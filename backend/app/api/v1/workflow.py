@@ -13,8 +13,33 @@ from backend.app.models.transaction import Transaction
 from backend.app.models.workflow import WorkflowRun
 from backend.app.workflows.graph import transaction_graph
 from backend.app.services.financial_engine import post_transaction_to_ledger
+from backend.app.services.voice_service import parse_vernacular_voice_narration
 
 router = APIRouter()
+
+class VoiceParseRequest(BaseModel):
+    narration: str
+
+@router.post("/parse-voice")
+def parse_voice_narration_endpoint(
+    req: VoiceParseRequest,
+    tenant: Tenant = Depends(get_current_tenant)
+):
+    """
+    Parses vernacular spoken narration (Hindi, Hinglish, English) into structured financial fields:
+    amount, direction, channel, counterparty, category, confidence.
+    """
+    if not req.narration or not req.narration.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Narration cannot be empty"
+        )
+    parsed = parse_vernacular_voice_narration(req.narration)
+    return {
+        "status": "success",
+        "tenant_id": tenant.id,
+        "data": parsed
+    }
 
 class ProcessTransactionRequest(BaseModel):
     raw_narration: str

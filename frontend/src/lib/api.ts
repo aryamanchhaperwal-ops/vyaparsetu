@@ -156,6 +156,23 @@ export const api = {
   // Ingestion & Mock Data
   generateSyntheticData: (count: number = 20) =>
     fetchWithAuth(`/api/v1/ingestion/synthetic?count=${count}`, { method: "POST" }),
+  previewStatement: (file: File, sheetName?: string, delimiter?: string) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (sheetName) fd.append("sheet_name", sheetName);
+    if (delimiter) fd.append("delimiter", delimiter);
+    return fetchWithAuth("/api/v1/ingestion/preview", { method: "POST", body: fd });
+  },
+  confirmStatement: (records: any[], skipDuplicates: boolean = true, autoPostLedger: boolean = true) => {
+    return fetchWithAuth("/api/v1/ingestion/confirm", {
+      method: "POST",
+      body: JSON.stringify({
+        records,
+        skip_duplicates: skipDuplicates,
+        auto_post_ledger: autoPostLedger,
+      }),
+    });
+  },
   uploadCSV: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -191,6 +208,8 @@ export const api = {
     }),
 
   // LangGraph AI Workflows & Approvals
+  parseVoiceNarration: (narration: string) =>
+    fetchWithAuth("/api/v1/workflow/parse-voice", { method: "POST", body: JSON.stringify({ narration }) }),
   processWorkflow: (data: any) =>
     fetchWithAuth("/api/v1/workflow/process", { method: "POST", body: JSON.stringify(data) }),
   getApprovalQueue: () => fetchWithAuth("/api/v1/workflow/approval-queue"),

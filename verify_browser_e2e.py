@@ -70,9 +70,9 @@ def run_browser_verification():
         page.wait_for_timeout(500)
         
         # Execute LangGraph Agent
-        page.locator("button:has-text('Run LangGraph Agent')").click()
+        page.locator("button:has-text('LangGraph Agent')").click()
         # Wait for result to appear
-        page.wait_for_selector("text=Autonomous Decision", timeout=15000)
+        page.wait_for_selector("[data-testid='autonomous-decision']", timeout=15000)
         page.screenshot(path=os.path.join(SCREENSHOT_DIR, "05_bookkeeping_agent_run.png"))
         print("  ✓ LangGraph agent executed and auto-posted balanced double-entry vouchers.")
 
@@ -100,13 +100,19 @@ def run_browser_verification():
         assert page.locator("text=Bank vs Invoice Matching").count() > 0
         print("  ✓ Bank and invoice reconciliation workspace verified.")
 
-        # 10. Financial Statements (P&L and Balance Sheet)
-        print("\n[10/12] Testing Financial Reports...")
+        # 10. Financial Statements (P&L, Balance Sheet, and Knowledge Graph)
+        print("\n[10/12] Testing Financial Reports & Interactive Knowledge Graph...")
         page.goto("http://localhost:3000/dashboard/reports")
         page.wait_for_load_state("networkidle")
         page.screenshot(path=os.path.join(SCREENSHOT_DIR, "09_financial_statements.png"))
         assert page.locator("text=Profit & Loss").count() > 0
-        print("  ✓ Profit & Loss and Balance sheet statements verified.")
+
+        # Switch to Knowledge Graph Tab
+        page.locator("button:has-text('Knowledge Graph')").click()
+        page.wait_for_timeout(800)
+        assert page.locator("text=Interactive Multi-Entity Financial Knowledge Graph").count() > 0
+        page.screenshot(path=os.path.join(SCREENSHOT_DIR, "09b_interactive_knowledge_graph.png"))
+        print("  ✓ Profit & Loss, Balance Sheet, and Interactive Knowledge Graph verified.")
 
         # 11. GST Regional Workspace
         print("\n[11/12] Testing GST Regional Workspace & Simulated Filing...")
@@ -121,13 +127,13 @@ def run_browser_verification():
         page.screenshot(path=os.path.join(SCREENSHOT_DIR, "10_gst_workspace.png"))
         print("  ✓ GST compliance workspace and Section 170 calculations verified.")
 
-        # 12. AI Assistant (RAG)
-        print("\n[12/12] Testing AI Assistant with BharatCode RAG...")
+        # 12. AI Assistant (RAG & Conversational Routing)
+        print("\n[12/12] Testing AI Assistant with BharatCode RAG & Voice...")
         page.goto("http://localhost:3000/dashboard/assistant")
         page.wait_for_load_state("networkidle")
         
         # Click a statutory suggested question
-        page.locator("button:has-text('What are the 4 mandatory conditions to claim Input Tax Credit under Section 16(2)?')").click()
+        page.locator("button:has-text('Section 16(2)')").click()
         # Wait for answer to arrive from BharatCode RAG
         page.wait_for_selector("text=Statutory Authority Cited", timeout=15000)
         page.screenshot(path=os.path.join(SCREENSHOT_DIR, "11_assistant_rag.png"))

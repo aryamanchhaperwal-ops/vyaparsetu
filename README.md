@@ -8,7 +8,7 @@
 [![LLM Provider](https://img.shields.io/badge/LLM-BharatCode%20Hosted%20API-emerald.svg)](#)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2%20(App%20Router)-black.svg)](https://nextjs.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8.svg)](https://tailwindcss.com)
-[![Tests](https://img.shields.io/badge/Tests-35%2F35%20Passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-45%2F45%20Passing-brightgreen.svg)](#)
 [![AI Mode](https://img.shields.io/badge/AI%20Modes-Production%20%7C%20Dev%20Simulation-amber.svg)](#)
 [![License](https://img.shields.io/badge/License-Proprietary%20%2F%20BharatCode-purple.svg)](#)
 
@@ -33,6 +33,35 @@ Over **63 million micro, small, and medium enterprises (MSMEs)** power 30% of In
 - 📐 **100% Deterministic Financial Arithmetic:** Financial calculations and double-entry balancing are **never** delegated to LLM hallucination. Built with pure Python `Decimal` enforcing $\sum \text{Debits} == \sum \text{Credits}$ down to the paisa.
 - ⚖️ **Statutory GST Engine:** Enforces Section 7/8 Place of Supply, Section 17(5) blocked credit detection, and Section 170 `ROUND_HALF_UP` statutory rounding. Generates simulated GSTR-1 and GSTR-3B tax offset waterfalls.
 - 🏢 **Multi-Tenant SaaS Foundation:** Strict tenant data isolation with Role-Based Access Control (`OWNER`, `ADMIN`, `ACCOUNTANT`, `EMPLOYEE`), multi-business accountant access, and global currency/timezone settings.
+
+---
+
+## 🚀 Core Capabilities Completed in Sprint
+
+### 1. Robust Financial Document Ingestion Pipeline (CSV, Excel & PDF)
+- **Two-Phase Ingestion Workflow:** Step 1 performs non-destructive parsing and row-level validation (`POST /api/v1/ingestion/preview`); Step 2 commits confirmed rows and automatically posts balanced ledger vouchers (`POST /api/v1/ingestion/confirm`).
+- **Resilient Bank Header Detection:** Strips leading metadata rows (branch details, account numbers) found in Indian statements (SBI, HDFC, ICICI).
+- **Multi-Worksheet Excel Support:** Inspects sheet names and allows dynamic worksheet selection.
+- **Deduplication Engine:** Automatically flags duplicate UTR/reference numbers both within the batch and against the tenant database.
+- **Interactive UI Preview Modal:** Displays row-by-row candidate tables with status pills, duplicate warnings, and ledger posting options.
+
+### 2. Interactive Multi-Entity Financial Knowledge Graph
+- **10 Full Tenant-Scoped Entities:** `BUSINESS`, `USER`, `VENDOR`, `CUSTOMER`, `INVOICE`, `TRANSACTION`, `LEDGER_ACCOUNT`, `LEDGER_ENTRY`, `GST_RECORD`, `RECONCILIATION_MATCH`.
+- **9 Relationship Types:** `OWNS`, `EMPLOYS`, `ISSUES_INVOICE`, `RECEIVES_INVOICE`, `PAYS_INVOICE`, `CREATES_ENTRY`, `AFFECTS_ACCOUNT`, `CONTRIBUTES_TO_GST`, `MATCHES_RECONCILIATION`.
+- **Interactive Visualizer Canvas:** SVG-powered force & orbit layout with interactive zoom, pan, live entity search, entity-type toggles, and slide-over attribute/link inspection drawer.
+
+### 3. Conversational AI Financial Assistant with Intent Dispatching
+- **5 Intent Routing Domains:**
+  1. `CONVERSATION`: Greetings and introductions receive warm assistance without statutory GST lectures.
+  2. `BUSINESS_QUERY`: Aggregates real tenant data (total spend, revenue, bank/cash balances, top vendors) using deterministic SQL.
+  3. `ACCOUNTING_GUIDANCE`: Explains double-entry bookkeeping, the three golden rules, and Chart of Accounts.
+  4. `GST_RAG`: Statutory tax questions retrieve CGST/IGST legal sections with official citations.
+  5. `ANALYTICS_INSIGHTS`: Delivers 30-day cash flow runway projections and anomaly alerts.
+
+### 4. Hindi & English Voice Assistant
+- **Web Speech API Integration:** Speech recognition and speech synthesis (`hi-IN`, `en-IN`, `en-US`) with pulsating live microphone controls.
+- **Voice Bookkeeping Workbench:** Spoken mercantile narration (e.g. *"Sharma ji ko cement ke liye 25000 rupaye cash me diye"*) is automatically parsed into structured transaction fields (amount, direction, channel, counterparty, category) for merchant review before running the LangGraph loop.
+- **Text-to-Speech Playback:** Listen to assistant answers spoken aloud in Indian English or Hindi.
 
 ---
 
