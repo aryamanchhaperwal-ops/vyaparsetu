@@ -161,6 +161,16 @@ export const api = {
     fd.append("file", file);
     return fetchWithAuth("/api/v1/ingestion/csv", { method: "POST", body: fd });
   },
+  uploadExcel: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return fetchWithAuth("/api/v1/ingestion/excel", { method: "POST", body: fd });
+  },
+  uploadStatementAuto: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return fetchWithAuth("/api/v1/ingestion/statement", { method: "POST", body: fd });
+  },
   uploadPDF: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -187,13 +197,16 @@ export const api = {
   approveTransaction: (data: any) =>
     fetchWithAuth("/api/v1/workflow/approve", { method: "POST", body: JSON.stringify(data) }),
 
-  // Ledger
+  // Ledger & Reconciliation
   getAccounts: () => fetchWithAuth("/api/v1/ledger/accounts"),
   getTrialBalance: () => fetchWithAuth("/api/v1/ledger/trial-balance"),
   getFinancialStatements: () => fetchWithAuth("/api/v1/ledger/financial-statements"),
   getLedgerEntries: () => fetchWithAuth("/api/v1/ledger/entries"),
   postToLedger: (txId: string, isInterstate: boolean = false) =>
     fetchWithAuth(`/api/v1/ledger/post/${txId}?is_interstate=${isInterstate}`, { method: "POST" }),
+  runReconciliation: (autoLinkThreshold: number = 0.90) =>
+    fetchWithAuth(`/api/v1/ledger/reconcile?auto_link_threshold=${autoLinkThreshold}`, { method: "POST" }),
+  getReconciliationOverview: () => fetchWithAuth("/api/v1/ledger/reconciliation-status"),
 
   // GST Engine
   computeGST: (data: any) =>
@@ -215,7 +228,10 @@ export const api = {
 
   // Analytics & Credit Insights
   getCashFlow: () => fetchWithAuth("/api/v1/analytics/cashflow"),
+  getCashFlowForecast: (days: number = 30) => fetchWithAuth(`/api/v1/analytics/forecast?days=${days}`),
   getCreditHealth: () => fetchWithAuth("/api/v1/analytics/credit-health"),
+  getKnowledgeGraph: () => fetchWithAuth("/api/v1/analytics/knowledge-graph"),
+  getHealth: () => fetch("/health").then((r) => r.json()),
 
   // Subscription & Audit
   getUsage: () => fetchWithAuth("/api/v1/subscription/usage"),

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.orm import Session
@@ -16,6 +16,56 @@ router = APIRouter()
 class ReconcileReceiptRequest(BaseModel):
     receipt_id: str
     transaction_id: str
+
+class CreateInvoiceRecordRequest(BaseModel):
+    invoice_number: str
+    invoice_date: str
+    vendor_name: str
+    vendor_gstin: Optional[str] = None
+    total_amount: float
+    taxable_amount: float
+    cgst_amount: float = 0.0
+    sgst_amount: float = 0.0
+    igst_amount: float = 0.0
+
+@router.post("/invoice-record")
+def create_invoice_record(
+    req: CreateInvoiceRecordRequest,
+    tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db)
+):
+    """Directly creates a structured invoice/receipt record in the tenant ledger."""
+    import datetime
+    from decimal import Decimal
+    try:
+        inv_date = datetime.date.fromisoformat(req.invoice_date)
+    except Exception:
+        inv_date = datetime.date.today()
+
+    rcpt = Receipt(
+        tenant_id=tenant.id,
+        invoice_number=req.invoice_number,
+        invoice_date=inv_date,
+        vendor_name=req.vendor_name,
+        vendor_gstin=req.vendor_gstin,
+        total_amount=Decimal(str(req.total_amount)),
+        taxable_amount=Decimal(str(req.taxable_amount)),
+        cgst_amount=Decimal(str(req.cgst_amount)),
+        sgst_amount=Decimal(str(req.sgst_amount)),
+        igst_amount=Decimal(str(req.igst_amount)),
+        status="EXTRACTED"
+    )
+    db.add(rcpt)
+    db.commit()
+    db.refresh(rcpt)
+
+    return {
+        "status": "success",
+        "receipt_id": rcpt.id,
+        "invoice_number": rcpt.invoice_number,
+        "vendor_name": rcpt.vendor_name,
+        "total_amount": f"{rcpt.total_amount:.2f}"
+    }
 
 @router.post("/upload")
 async def upload_receipt(

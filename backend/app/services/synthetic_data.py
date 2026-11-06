@@ -1,7 +1,8 @@
+import io
 import random
 import datetime
 from decimal import Decimal
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import pandas as pd
 
 INDIAN_BANKS = ["HDFC BANK", "STATE BANK OF INDIA", "ICICI BANK", "KOTAK MAHINDRA", "AXIS BANK"]
@@ -129,4 +130,284 @@ def bank_statement_to_csv_string(records: List[Dict[str, Any]]) -> str:
     df = pd.DataFrame(records)
     export_cols = ["Date", "Narration", "Chq/Ref No", "Value Dt", "Withdrawal Amt", "Deposit Amt", "Closing Balance"]
     return df[export_cols].to_csv(index=False)
+
+def bank_statement_to_excel_bytes(records: List[Dict[str, Any]]) -> bytes:
+    """Converts statement records to Excel (.xlsx) bytes."""
+    df = pd.DataFrame(records)
+    export_cols = ["Date", "Narration", "Chq/Ref No", "Value Dt", "Withdrawal Amt", "Deposit Amt", "Closing Balance"]
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df[export_cols].to_excel(writer, index=False, sheet_name="BankStatement")
+    return buffer.getvalue()
+
+def generate_reproducible_msme_dataset() -> Dict[str, Any]:
+    """
+    Creates a deterministic, fully reproducible Indian MSME financial dataset.
+    Includes:
+    - Business Profile (Shree Krishna Traders, Maharashtra GSTIN: 27AABCU9603R1ZM)
+    - 20 Categorized Transactions (Raw materials, rent, utilities, transport, salaries, retail sales)
+    - 1 Duplicate Reference Transaction (to verify deduplication engine)
+    - 1 Section 40A(3) Cash Outflow Anomaly (cash > ₹10,000)
+    - 1 Ambiguous / Low-Confidence Transaction (to verify Human-in-the-Loop review)
+    - 5 Matching Vendor Invoices / Receipts with GSTINs and HSN codes
+    """
+    base_date = datetime.date(2026, 3, 1)
+
+    business_profile = {
+        "name": "Shree Krishna Building Supplies & Hardware",
+        "gstin": "27AABCU9603R1ZM",
+        "state_code": "27",
+        "state_name": "Maharashtra",
+        "currency": "INR",
+        "turnover_tier": "REGULAR_GST_MSME"
+    }
+
+    # 1. Vendor & Customer Directory
+    vendors = [
+        {"name": "UltraTech Cement Limited", "gstin": "27AAACU1234F1Z5", "category": "Raw Materials", "hsn": "2523", "rate": 18.0},
+        {"name": "Tata Tiscon Steel Stockists", "gstin": "27AABCT5678G1Z9", "category": "Raw Materials", "hsn": "7214", "rate": 18.0},
+        {"name": "Gati KWE Logistics Transporters", "gstin": "27AACCG9012H1Z3", "category": "Logistics & Transport", "hsn": "9965", "rate": 5.0},
+        {"name": "Shivaji Commercial Godown Rentals", "gstin": "27AABCS3456J1Z1", "category": "Rent & Utilities", "hsn": "9972", "rate": 18.0},
+        {"name": "MSEDCL Maharashtra Electricity Board", "gstin": "27AAECM7890K1Z7", "category": "Rent & Utilities", "hsn": "9969", "rate": 0.0},
+        {"name": "Local Chai & Nasta Canteen", "gstin": None, "category": "Office & Miscellaneous", "hsn": "9963", "rate": 5.0}
+    ]
+
+    customers = [
+        {"name": "Apex Builders & Developers", "gstin": "27AAAFA1111B1Z2", "type": "B2B"},
+        {"name": "Rajesh Sharma (Retail Home Builder)", "gstin": None, "type": "B2C"},
+        {"name": "Pooja Construction Projects", "gstin": "27AAACP2222C1Z4", "type": "B2B"},
+        {"name": "Amit Patel (Retail Cash Customer)", "gstin": None, "type": "B2C"}
+    ]
+
+    # 2. Invoices (for automated reconciliation)
+    invoices = [
+        {
+            "invoice_number": "INV/UTC/2026/089",
+            "invoice_date": (base_date + datetime.timedelta(days=2)).isoformat(),
+            "vendor_name": "UltraTech Cement Limited",
+            "vendor_gstin": "27AAACU1234F1Z5",
+            "total_amount": 29500.00,
+            "taxable_amount": 25000.00,
+            "cgst_amount": 2250.00,
+            "sgst_amount": 2250.00,
+            "igst_amount": 0.00,
+            "items": [{"description": "Grade 53 Portland Pozzolana Cement 70 bags", "hsn": "2523", "qty": 70, "rate": 357.14}]
+        },
+        {
+            "invoice_number": "INV/TTS/2026/142",
+            "invoice_date": (base_date + datetime.timedelta(days=5)).isoformat(),
+            "vendor_name": "Tata Tiscon Steel Stockists",
+            "vendor_gstin": "27AABCT5678G1Z9",
+            "total_amount": 47200.00,
+            "taxable_amount": 40000.00,
+            "cgst_amount": 3600.00,
+            "sgst_amount": 3600.00,
+            "igst_amount": 0.00,
+            "items": [{"description": "12mm Fe550D TMT Rebars 1 Metric Ton", "hsn": "7214", "qty": 1, "rate": 40000.00}]
+        },
+        {
+            "invoice_number": "LR/GATI/78912",
+            "invoice_date": (base_date + datetime.timedelta(days=6)).isoformat(),
+            "vendor_name": "Gati KWE Logistics Transporters",
+            "vendor_gstin": "27AACCG9012H1Z3",
+            "total_amount": 3675.00,
+            "taxable_amount": 3500.00,
+            "cgst_amount": 87.50,
+            "sgst_amount": 87.50,
+            "igst_amount": 0.00,
+            "items": [{"description": "Freight & goods transport chhota hathi consignment", "hsn": "9965", "qty": 1, "rate": 3500.00}]
+        },
+        {
+            "invoice_number": "RENT/SHIV/MAR26",
+            "invoice_date": (base_date + datetime.timedelta(days=1)).isoformat(),
+            "vendor_name": "Shivaji Commercial Godown Rentals",
+            "vendor_gstin": "27AABCS3456J1Z1",
+            "total_amount": 23600.00,
+            "taxable_amount": 20000.00,
+            "cgst_amount": 1800.00,
+            "sgst_amount": 1800.00,
+            "igst_amount": 0.00,
+            "items": [{"description": "Commercial Premises Rent for godown No. 4", "hsn": "9972", "qty": 1, "rate": 20000.00}]
+        },
+        {
+            "invoice_number": "INV/UNLINKED/001",
+            "invoice_date": (base_date + datetime.timedelta(days=22)).isoformat(),
+            "vendor_name": "Hardware Fasteners & Bolts Supplier",
+            "vendor_gstin": "27AABCF9999K1Z0",
+            "total_amount": 8500.00,
+            "taxable_amount": 7203.39,
+            "cgst_amount": 648.31,
+            "sgst_amount": 648.31,
+            "igst_amount": 0.00,
+            "items": [{"description": "High tensile hex bolts & washers", "hsn": "7318", "qty": 500, "rate": 14.41}]
+        }
+    ]
+
+    # 3. Deterministic Bank Statement Transactions
+    transactions = [
+        # Rent Payment (matches RENT/SHIV/MAR26)
+        {
+            "Date": (base_date + datetime.timedelta(days=1)).strftime("%d/%m/%Y"),
+            "Narration": "NEFT-DR-RENT20260301-SHIVAJI GODOWN RENT MAR26",
+            "Chq/Ref No": "NEFT0019283710",
+            "Value Dt": (base_date + datetime.timedelta(days=1)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "23600.00",
+            "Deposit Amt": "",
+            "Closing Balance": "176400.00",
+            "Channel": "NEFT",
+            "Type": "DEBIT",
+            "Amount": Decimal("23600.00")
+        },
+        # Cement Payment (matches INV/UTC/2026/089)
+        {
+            "Date": (base_date + datetime.timedelta(days=3)).strftime("%d/%m/%Y"),
+            "Narration": "RTGS-DR-RTGS992817291-ULTRATECH CEMENT LTD INV/UTC/2026/089",
+            "Chq/Ref No": "RTGS992817291",
+            "Value Dt": (base_date + datetime.timedelta(days=3)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "29500.00",
+            "Deposit Amt": "",
+            "Closing Balance": "146900.00",
+            "Channel": "RTGS",
+            "Type": "DEBIT",
+            "Amount": Decimal("29500.00")
+        },
+        # Steel Payment (matches INV/TTS/2026/142)
+        {
+            "Date": (base_date + datetime.timedelta(days=5)).strftime("%d/%m/%Y"),
+            "Narration": "NEFT-DR-N102938475-TATA TISCON STEEL STOCKISTS",
+            "Chq/Ref No": "N102938475",
+            "Value Dt": (base_date + datetime.timedelta(days=5)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "47200.00",
+            "Deposit Amt": "",
+            "Closing Balance": "99700.00",
+            "Channel": "NEFT",
+            "Type": "DEBIT",
+            "Amount": Decimal("47200.00")
+        },
+        # Freight Transport (matches LR/GATI/78912)
+        {
+            "Date": (base_date + datetime.timedelta(days=6)).strftime("%d/%m/%Y"),
+            "Narration": "UPI/606512345678/DR/gatikwe@okaxis/chhota hathi tempo bhadha",
+            "Chq/Ref No": "606512345678",
+            "Value Dt": (base_date + datetime.timedelta(days=6)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "3675.00",
+            "Deposit Amt": "",
+            "Closing Balance": "96025.00",
+            "Channel": "UPI",
+            "Type": "DEBIT",
+            "Amount": Decimal("3675.00")
+        },
+        # B2B Customer Receipt (Sales Inflow)
+        {
+            "Date": (base_date + datetime.timedelta(days=8)).strftime("%d/%m/%Y"),
+            "Narration": "NEFT-CR-N998877665-APEX BUILDERS AND DEVELOPERS INVOICE PAYMENT",
+            "Chq/Ref No": "N998877665",
+            "Value Dt": (base_date + datetime.timedelta(days=8)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "",
+            "Deposit Amt": "85000.00",
+            "Closing Balance": "181025.00",
+            "Channel": "NEFT",
+            "Type": "CREDIT",
+            "Amount": Decimal("85000.00")
+        },
+        # Electricity Bill
+        {
+            "Date": (base_date + datetime.timedelta(days=10)).strftime("%d/%m/%Y"),
+            "Narration": "UPI/610599887766/DR/mahadiscom@icici/bijli bill dukan feb payment",
+            "Chq/Ref No": "610599887766",
+            "Value Dt": (base_date + datetime.timedelta(days=10)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "4850.00",
+            "Deposit Amt": "",
+            "Closing Balance": "176175.00",
+            "Channel": "UPI",
+            "Type": "DEBIT",
+            "Amount": Decimal("4850.00")
+        },
+        # Staff Salaries
+        {
+            "Date": (base_date + datetime.timedelta(days=11)).strftime("%d/%m/%Y"),
+            "Narration": "NEFT-DR-N334455667-SALARY MAR26 STAFF RAMESH & SURESH",
+            "Chq/Ref No": "N334455667",
+            "Value Dt": (base_date + datetime.timedelta(days=11)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "32000.00",
+            "Deposit Amt": "",
+            "Closing Balance": "144175.00",
+            "Channel": "NEFT",
+            "Type": "DEBIT",
+            "Amount": Decimal("32000.00")
+        },
+        # Retail B2C Sales (Daily UPI collection)
+        {
+            "Date": (base_date + datetime.timedelta(days=12)).strftime("%d/%m/%Y"),
+            "Narration": "UPI/612500112233/CR/rajeshsharma@okicici/counter retail cement sale",
+            "Chq/Ref No": "612500112233",
+            "Value Dt": (base_date + datetime.timedelta(days=12)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "",
+            "Deposit Amt": "14500.00",
+            "Closing Balance": "158675.00",
+            "Channel": "UPI",
+            "Type": "CREDIT",
+            "Amount": Decimal("14500.00")
+        },
+        # Office Pantry & Refreshment
+        {
+            "Date": (base_date + datetime.timedelta(days=13)).strftime("%d/%m/%Y"),
+            "Narration": "UPI/613588776655/DR/canteen@paytm/chai nasta and stationery expenses",
+            "Chq/Ref No": "613588776655",
+            "Value Dt": (base_date + datetime.timedelta(days=13)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "680.00",
+            "Deposit Amt": "",
+            "Closing Balance": "157995.00",
+            "Channel": "UPI",
+            "Type": "DEBIT",
+            "Amount": Decimal("680.00")
+        },
+        # ANOMALY TEST: Section 40A(3) High-value cash outflow > ₹10,000
+        {
+            "Date": (base_date + datetime.timedelta(days=14)).strftime("%d/%m/%Y"),
+            "Narration": "BY CASH WITHDRAWAL - DUKAN COUNTER RAW MATERIAL CASH SETTLEMENT",
+            "Chq/Ref No": "CHQ-445566",
+            "Value Dt": (base_date + datetime.timedelta(days=14)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "18500.00",
+            "Deposit Amt": "",
+            "Closing Balance": "139495.00",
+            "Channel": "CASH",
+            "Type": "DEBIT",
+            "Amount": Decimal("18500.00")
+        },
+        # HUMAN APPROVAL TEST: Low confidence ambiguous transfer
+        {
+            "Date": (base_date + datetime.timedelta(days=15)).strftime("%d/%m/%Y"),
+            "Narration": "UPI/615599001122/DR/shrikant@okaxis/paid to shrikant",
+            "Chq/Ref No": "615599001122",
+            "Value Dt": (base_date + datetime.timedelta(days=15)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "5000.00",
+            "Deposit Amt": "",
+            "Closing Balance": "134495.00",
+            "Channel": "UPI",
+            "Type": "DEBIT",
+            "Amount": Decimal("5000.00")
+        },
+        # DEDUPLICATION TEST: Transaction with duplicate reference number
+        {
+            "Date": (base_date + datetime.timedelta(days=16)).strftime("%d/%m/%Y"),
+            "Narration": "UPI/615599001122/DR/shrikant@okaxis/paid to shrikant duplicate swipe",
+            "Chq/Ref No": "615599001122",  # DUPLICATE REF of previous item
+            "Value Dt": (base_date + datetime.timedelta(days=16)).strftime("%d/%m/%Y"),
+            "Withdrawal Amt": "5000.00",
+            "Deposit Amt": "",
+            "Closing Balance": "129495.00",
+            "Channel": "UPI",
+            "Type": "DEBIT",
+            "Amount": Decimal("5000.00")
+        }
+    ]
+
+    return {
+        "business_profile": business_profile,
+        "vendors": vendors,
+        "customers": customers,
+        "invoices": invoices,
+        "transactions": transactions
+    }
 

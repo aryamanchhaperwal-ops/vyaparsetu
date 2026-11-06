@@ -9,6 +9,7 @@ from backend.app.models.transaction import Transaction
 from backend.app.models.receipt import Receipt
 from backend.app.llm.client import bharatcode_client
 from backend.app.services.financial_engine import post_transaction_to_ledger
+from backend.app.services.anomaly_service import detect_transaction_anomalies
 from backend.app.workflows.state import TransactionWorkflowState
 
 logger = logging.getLogger("workflow_nodes")
@@ -22,25 +23,44 @@ def get_workflow_db(config: Optional[RunnableConfig] = None) -> Tuple[Session, b
     return SessionLocal(), True
 
 async def deduplication_node(state: TransactionWorkflowState, config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
-    """Deterministic Node: Checks if reference number or identical transaction already exists."""
+    """Deterministic Node: Checks for duplicate transactions and flags financial anomalies."""
     ref_no = state.get("reference_number")
     tenant_id = state["tenant_id"]
+    amount = Decimal(str(state.get("amount", 0.0)))
+    direction = state.get("direction", "DEBIT")
+    channel = state.get("channel", "UPI")
 
-    if not ref_no:
-        return {"is_duplicate": False}
+    import datetime
+    tx_date = datetime.date.today()
 
     db, should_close = get_workflow_db(config)
     try:
-        existing = db.query(Transaction).filter(
-            Transaction.tenant_id == tenant_id,
-            Transaction.reference_number == ref_no
-        ).first()
-        if existing and existing.id != state.get("transaction_id"):
+        anomaly_res = detect_transaction_anomalies(
+            db=db,
+            tenant_id=tenant_id,
+            amount=amount,
+            direction=direction,
+            channel=channel,
+            tx_date=tx_date,
+            reference_number=ref_no,
+            narration=state.get("raw_narration", "")
+        )
+
+        if anomaly_res.get("is_duplicate"):
             return {
                 "is_duplicate": True,
-                "error": f"Duplicate transaction detected: Reference {ref_no} already posted on {existing.transaction_date}"
+                "is_anomaly": True,
+                "anomaly_score": 1.0,
+                "anomaly_reasons": anomaly_res.get("anomalies", []),
+                "error": f"Duplicate transaction detected: Reference {ref_no} already exists."
             }
-        return {"is_duplicate": False}
+
+        return {
+            "is_duplicate": False,
+            "is_anomaly": anomaly_res.get("is_anomaly", False),
+            "anomaly_score": anomaly_res.get("anomaly_score", 0.0),
+            "anomaly_reasons": anomaly_res.get("anomalies", [])
+        }
     finally:
         if should_close:
             db.close()
@@ -67,7 +87,9 @@ async def classification_node(state: TransactionWorkflowState, config: Optional[
         "hsn_sac_code": res.get("suggested_hsn_sac"),
         "gst_rate": float(res.get("gst_rate", 0.0)),
         "confidence_score": float(res.get("confidence_score", 0.5)),
-        "rationale": res.get("rationale", "")
+        "rationale": res.get("rationale", ""),
+        "ai_source": res.get("source", "DEV_SIMULATION"),
+        "ai_mode": res.get("ai_mode", "DEV_SIMULATION")
     }
 
 def confidence_router(state: TransactionWorkflowState) -> str:
@@ -75,6 +97,10 @@ def confidence_router(state: TransactionWorkflowState) -> str:
     if state.get("is_duplicate"):
         return "end_duplicate"
     
+    # If high anomaly score, route to human review for financial safety
+    if state.get("is_anomaly") and state.get("anomaly_score", 0.0) >= 0.40:
+        return "human_review"
+
     # If confidence < 0.85 or category is Uncategorized -> Route to Human Review
     if state.get("confidence_score", 0.0) < 0.85 or state.get("category") == "Uncategorized":
         return "human_review"

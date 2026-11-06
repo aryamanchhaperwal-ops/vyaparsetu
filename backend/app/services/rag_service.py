@@ -79,7 +79,11 @@ async def answer_gst_query_with_rag(
         "query": user_query,
         "answer": llm_resp["content"],
         "citations": citations,
-        "llm_provider": "BharatCode Hosted API",
+        "llm_provider": "BharatCode Qwen 3.8 27B" if llm_resp.get("live_api") else "Dev Indic Statutory Assistant (Simulated)",
+        "ai_mode": llm_resp.get("ai_mode", "DEV_SIMULATION"),
+        "source": llm_resp.get("source", "DEV_SIMULATION"),
+        "live_api": llm_resp.get("live_api", False),
+        "notice": llm_resp.get("notice", ""),
         "grounded": True
     }
 

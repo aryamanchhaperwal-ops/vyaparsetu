@@ -1,0 +1,110 @@
+{
+  "business_profile": {
+    "name": "Shree Krishna Building Supplies & Hardware",
+    "gstin": "27AABCU9603R1ZM",
+    "state_code": "27",
+    "state_name": "Maharashtra",
+    "currency": "INR",
+    "turnover_tier": "REGULAR_GST_MSME"
+  },
+  "invoices": [
+    {
+      "invoice_number": "INV/UTC/2026/089",
+      "invoice_date": "2026-03-03",
+      "vendor_name": "UltraTech Cement Limited",
+      "vendor_gstin": "27AAACU1234F1Z5",
+      "total_amount": 29500.0,
+      "taxable_amount": 25000.0,
+      "cgst_amount": 2250.0,
+      "sgst_amount": 2250.0,
+      "igst_amount": 0.0,
+      "items": [
+        {
+          "description": "Grade 53 Portland Pozzolana Cement 70 bags",
+          "hsn": "2523",
+          "qty": 70,
+          "rate": 357.14
+        }
+      ]
+    },
+    {
+      "invoice_number": "INV/TTS/2026/142",
+      "invoice_date": "2026-03-06",
+      "vendor_name": "Tata Tiscon Steel Stockists",
+      "vendor_gstin": "27AABCT5678G1Z9",
+      "total_amount": 47200.0,
+      "taxable_amount": 40000.0,
+      "cgst_amount": 3600.0,
+      "sgst_amount": 3600.0,
+      "igst_amount": 0.0,
+      "items": [
+        {
+          "description": "12mm Fe550D TMT Rebars 1 Metric Ton",
+          "hsn": "7214",
+          "qty": 1,
+          "rate": 40000.0
+        }
+      ]
+    },
+    {
+      "invoice_number": "LR/GATI/78912",
+      "invoice_date": "2026-03-07",
+      "vendor_name": "Gati KWE Logistics Transporters",
+      "vendor_gstin": "27AACCG9012H1Z3",
+      "total_amount": 3675.0,
+      "taxable_amount": 3500.0,
+      "cgst_amount": 87.5,
+      "sgst_amount": 87.5,
+      "igst_amount": 0.0,
+      "items": [
+        {
+          "description": "Freight & goods transport chhota hathi consignment",
+          "hsn": "9965",
+          "qty": 1,
+          "rate": 3500.0
+        }
+      ]
+    },
+    {
+      "invoice_number": "RENT/SHIV/MAR26",
+      "invoice_date": "2026-03-02",
+      "vendor_name": "Shivaji Commercial Godown Rentals",
+      "vendor_gstin": "27AABCS3456J1Z1",
+      "total_amount": 23600.0,
+      "taxable_amount": 20000.0,
+      "cgst_amount": 1800.0,
+      "sgst_amount": 1800.0,
+      "igst_amount": 0.0,
+      "items": [
+        {
+          "description": "Commercial Premises Rent for godown No. 4",
+          "hsn": "9972",
+          "qty": 1,
+          "rate": 20000.0
+        }
+      ]
+    },
+    {
+      "invoice_number": "INV/UNLINKED/001",
+      "invoice_date": "2026-03-23",
+      "vendor_name": "Hardware Fasteners & Bolts Supplier",
+      "vendor_gstin": "27AABCF9999K1Z0",
+      "total_amount": 8500.0,
+      "taxable_amount": 7203.39,
+      "cgst_amount": 648.31,
+      "sgst_amount": 648.31,
+      "igst_amount": 0.0,
+      "items": [
+        {
+          "description": "High tensile hex bolts & washers",
+          "hsn": "7318",
+          "qty": 500,
+          "rate": 14.41
+        }
+      ]
+    }
+  ],
+  "transactions_count": 12,
+  "vendors_count": 6,
+  "customers_count": 4
+}

@@ -53,6 +53,9 @@ async def process_transaction_workflow(
         "channel": req.channel,
         "reference_number": req.reference_number,
         "is_duplicate": False,
+        "is_anomaly": False,
+        "anomaly_score": 0.0,
+        "anomaly_reasons": [],
         "category": "",
         "sub_category": None,
         "hsn_sac_code": None,
@@ -67,6 +70,8 @@ async def process_transaction_workflow(
         "ledger_entries_created": 0,
         "is_interstate": req.is_interstate,
         "rationale": "",
+        "ai_source": None,
+        "ai_mode": None,
         "error": None
     }
 
@@ -114,7 +119,11 @@ async def process_transaction_workflow(
             "confidence_score": result.get("confidence_score"),
             "category": result.get("category"),
             "rationale": result.get("rationale"),
-            "message": "Low confidence or ambiguous transaction flagged for human approval."
+            "ai_mode": result.get("ai_mode", "DEV_SIMULATION"),
+            "ai_source": result.get("ai_source", "DEV_SIMULATION"),
+            "is_anomaly": result.get("is_anomaly", False),
+            "anomaly_reasons": result.get("anomaly_reasons", []),
+            "message": "Transaction flagged for human approval (low confidence or anomaly detected)."
         }
 
     # If duplicate
@@ -133,6 +142,8 @@ async def process_transaction_workflow(
         "confidence_score": result.get("confidence_score"),
         "ledger_entries_created": result.get("ledger_entries_created"),
         "reconciled_receipt_id": result.get("reconciled_receipt_id"),
+        "ai_mode": result.get("ai_mode", "DEV_SIMULATION"),
+        "ai_source": result.get("ai_source", "DEV_SIMULATION"),
         "rationale": result.get("rationale")
     }
 

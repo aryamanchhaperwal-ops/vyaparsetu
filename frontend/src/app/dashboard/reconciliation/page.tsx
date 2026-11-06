@@ -92,14 +92,36 @@ export default function ReconciliationPage() {
           </p>
         </div>
 
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-sm transition"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              setMatching(true);
+              try {
+                const res = await api.runReconciliation(0.85);
+                setSuccessMsg(`Auto-reconciliation complete: ${res.auto_linked_count} invoices linked, ${res.suggested_count} candidates scored.`);
+                await loadData();
+              } catch (err: any) {
+                setErrorMsg("Auto-reconciliation failed: " + err.message);
+              } finally {
+                setMatching(false);
+              }
+            }}
+            disabled={matching}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{matching ? "Matching..." : "Run Auto-Reconciliation"}</span>
+          </button>
+
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-sm transition"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {successMsg && (

@@ -56,6 +56,75 @@ def compute_cash_flow_analytics(db: Session, tenant_id: str) -> Dict[str, Any]:
         ]
     }
 
+def compute_cash_flow_forecast(db: Session, tenant_id: str, projection_days: int = 30) -> Dict[str, Any]:
+    """
+    Generates a 30-day forward predictive cash-flow forecast for Indian MSME operations.
+    Projects daily closing liquidity, runway burn, and working capital buffers.
+    """
+    txs = db.query(Transaction).filter(
+        Transaction.tenant_id == tenant_id,
+        Transaction.status == "CONFIRMED"
+    ).all()
+
+    liquid_accounts = db.query(LedgerAccount).filter(
+        LedgerAccount.tenant_id == tenant_id,
+        LedgerAccount.code.in_(["1010", "1020"])
+    ).all()
+    starting_liquidity = sum((acc.balance for acc in liquid_accounts), Decimal("0.00"))
+
+    if not txs:
+        daily_inflow = Decimal("1500.00")
+        daily_outflow = Decimal("1000.00")
+    else:
+        num_days = max(1, len({t.transaction_date for t in txs}))
+        total_in = sum((t.amount for t in txs if t.type == "CREDIT"), Decimal("0.00"))
+        total_out = sum((t.amount for t in txs if t.type == "DEBIT"), Decimal("0.00"))
+        daily_inflow = (total_in / Decimal(str(num_days))).quantize(Decimal("0.01"))
+        daily_outflow = (total_out / Decimal(str(num_days))).quantize(Decimal("0.01"))
+
+    today = datetime.date.today()
+    projected_days = []
+    running_balance = starting_liquidity
+
+    min_projected = starting_liquidity
+
+    for day in range(1, projection_days + 1):
+        future_date = today + datetime.timedelta(days=day)
+        
+        # Periodic commitments (e.g. rent/utilities around 1st-5th, GST liability around 20th)
+        day_outflow = daily_outflow
+        if future_date.day == 20:
+            day_outflow += Decimal("15000.00")  # Simulated monthly GST remittance (GSTR-3B)
+        elif future_date.day in (1, 2):
+            day_outflow += Decimal("20000.00")  # Commercial rent & salary cycle
+
+        running_balance += (daily_inflow - day_outflow)
+        if running_balance < min_projected:
+            min_projected = running_balance
+
+        if day in (7, 14, 21, 30):
+            projected_days.append({
+                "day": day,
+                "date": future_date.isoformat(),
+                "projected_balance": f"{running_balance:.2f}",
+                "net_change": f"{(running_balance - starting_liquidity):.2f}"
+            })
+
+    shortfall_risk = "HIGH" if min_projected < 0 else ("MODERATE" if min_projected < Decimal("50000.00") else "LOW")
+
+    return {
+        "tenant_id": tenant_id,
+        "starting_liquidity": f"{starting_liquidity:.2f}",
+        "daily_average_inflow": f"{daily_inflow:.2f}",
+        "daily_average_outflow": f"{daily_outflow:.2f}",
+        "forecast_period_days": projection_days,
+        "projected_closing_balance_30d": f"{running_balance:.2f}",
+        "lowest_projected_buffer": f"{min_projected:.2f}",
+        "shortfall_risk_level": shortfall_risk,
+        "milestones": projected_days,
+        "statutory_buffer_advice": "Maintain minimum ₹25,000 liquid reserve for GSTR-3B tax payment on the 20th."
+    }
+
 def compute_indicative_credit_insights(db: Session, tenant_id: str) -> Dict[str, Any]:
     """
     Computes an indicative, explainable MSME credit health score (0 - 100).

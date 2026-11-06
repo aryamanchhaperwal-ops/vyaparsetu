@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     BHARATCODE_API_KEY: str = "test_bharatcode_key"
     BHARATCODE_BASE_URL: str = "https://bharatcode.ai/api/model/v1"
     BHARATCODE_MODEL_NAME: str = "qwen-3.8-27b"
+    AI_MODE: str = "DEV_SIMULATION"  # "PRODUCTION_BHARATCODE" or "DEV_SIMULATION"
+    AI_PROVIDER_LABEL: str = "BharatCode Qwen 3.8 27B"
 
     # Storage
     STORAGE_DIR: str = str(BASE_DIR / "backend" / "storage")

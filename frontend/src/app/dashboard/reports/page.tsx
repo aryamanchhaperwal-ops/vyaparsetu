@@ -11,7 +11,10 @@ import {
   Download,
   ShieldCheck,
   CheckCircle2,
-  FileText
+  FileText,
+  Network,
+  CalendarDays,
+  AlertTriangle
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLanguage } from "@/lib/LanguageContext";
@@ -48,20 +51,26 @@ interface CashFlowData {
 
 export default function ReportsPage() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"p_and_l" | "balance_sheet" | "cash_flow">("p_and_l");
+  const [activeTab, setActiveTab] = useState<"p_and_l" | "balance_sheet" | "cash_flow" | "forecast" | "knowledge_graph">("p_and_l");
   const [statements, setStatements] = useState<FinancialStatementsData | null>(null);
   const [cashFlow, setCashFlow] = useState<CashFlowData | null>(null);
+  const [forecast, setForecast] = useState<any>(null);
+  const [knowledgeGraph, setKnowledgeGraph] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [stmts, cf] = await Promise.all([
+      const [stmts, cf, fc, kg] = await Promise.all([
         api.getFinancialStatements(),
         api.getCashFlow(),
+        api.getCashFlowForecast(),
+        api.getKnowledgeGraph(),
       ]);
       setStatements(stmts);
       setCashFlow(cf);
+      setForecast(fc);
+      setKnowledgeGraph(kg);
     } catch (err: any) {
       console.error("Failed to load financial statements:", err);
     } finally {
@@ -136,7 +145,31 @@ export default function ReportsPage() {
           }`}
         >
           <PieChart className="w-4 h-4" />
-          <span>Cash Flow &amp; Runway</span>
+          <span>Cash Flow</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("forecast")}
+          className={`pb-3 px-1 border-b-2 transition flex items-center gap-2 ${
+            activeTab === "forecast"
+              ? "border-emerald-600 text-emerald-700 font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <CalendarDays className="w-4 h-4" />
+          <span>30-Day Forecast</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("knowledge_graph")}
+          className={`pb-3 px-1 border-b-2 transition flex items-center gap-2 ${
+            activeTab === "knowledge_graph"
+              ? "border-emerald-600 text-emerald-700 font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Network className="w-4 h-4" />
+          <span>Knowledge Graph</span>
         </button>
       </div>
 
@@ -378,6 +411,131 @@ export default function ReportsPage() {
                     />
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: 30-Day Forward Cash Forecast */}
+      {activeTab === "forecast" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs text-slate-500 uppercase font-semibold">Starting Liquidity</span>
+              <p className="text-2xl font-bold text-slate-900 mt-2">₹{forecast?.starting_liquidity || "0.00"}</p>
+            </div>
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs text-slate-500 uppercase font-semibold">Daily Run Rate (In / Out)</span>
+              <p className="text-base font-bold text-slate-800 mt-2">
+                +₹{forecast?.daily_average_inflow || "0"} / -₹{forecast?.daily_average_outflow || "0"}
+              </p>
+            </div>
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs text-slate-500 uppercase font-semibold">30-Day Projected Balance</span>
+              <p className={`text-2xl font-bold mt-2 ${parseFloat(forecast?.projected_closing_balance_30d || "0") >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                ₹{forecast?.projected_closing_balance_30d || "0.00"}
+              </p>
+            </div>
+            <div className={`p-5 rounded-xl border shadow-sm ${forecast?.shortfall_risk_level === "HIGH" ? "bg-rose-50 border-rose-300" : "bg-emerald-50 border-emerald-300"}`}>
+              <span className="text-xs uppercase font-semibold text-slate-700">Shortfall Risk</span>
+              <p className={`text-2xl font-bold mt-2 ${forecast?.shortfall_risk_level === "HIGH" ? "text-rose-700" : "text-emerald-800"}`}>
+                {forecast?.shortfall_risk_level || "LOW"}
+              </p>
+            </div>
+          </div>
+
+          {forecast?.statutory_buffer_advice && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <span><strong>Statutory Tax Buffer:</strong> {forecast.statutory_buffer_advice}</span>
+            </div>
+          )}
+
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-800 text-sm mb-4">Forward Liquidity Milestones</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500">
+                    <th className="pb-2">Milestone</th>
+                    <th className="pb-2">Target Date</th>
+                    <th className="pb-2">Projected Balance</th>
+                    <th className="pb-2">Net Shift</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(forecast?.milestones || []).map((m: any) => (
+                    <tr key={m.day} className="hover:bg-slate-50">
+                      <td className="py-2.5 font-bold text-slate-800">Day +{m.day}</td>
+                      <td className="py-2.5 text-slate-600">{m.date}</td>
+                      <td className="py-2.5 font-semibold text-slate-900">₹{m.projected_balance}</td>
+                      <td className={`py-2.5 font-bold ${parseFloat(m.net_change) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                        {parseFloat(m.net_change) >= 0 ? "+" : ""}₹{m.net_change}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Financial Knowledge Graph */}
+      {activeTab === "knowledge_graph" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs text-slate-500 uppercase font-semibold">Graph Entities</span>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{knowledgeGraph?.summary?.total_nodes || 0}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs text-slate-500 uppercase font-semibold">Relationships</span>
+              <p className="text-2xl font-bold text-emerald-700 mt-1">{knowledgeGraph?.summary?.total_edges || 0}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs text-slate-500 uppercase font-semibold">Counterparties</span>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{knowledgeGraph?.summary?.counterparties_count || 0}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-xs text-slate-500 uppercase font-semibold">HSN Clusters</span>
+              <p className="text-2xl font-bold text-teal-700 mt-1">{knowledgeGraph?.summary?.hsn_count || 0}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-800 text-sm mb-3">Top Counterparty Volume Hubs</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(knowledgeGraph?.summary?.top_counterparties || []).map((cp: any) => (
+                <div key={cp.name} className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+                  <span className="font-semibold text-xs text-slate-800">{cp.name}</span>
+                  <span className="font-bold text-xs text-emerald-700">₹{cp.volume}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-800 text-sm mb-3">Knowledge Graph Entity Nodes</h3>
+            <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2 border border-slate-100 rounded-lg">
+              {(knowledgeGraph?.nodes || []).map((node: any) => (
+                <span
+                  key={node.id}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border ${
+                    node.type === "VENDOR" || node.type === "COUNTERPARTY"
+                      ? "bg-blue-50 border-blue-200 text-blue-800"
+                      : node.type === "CATEGORY"
+                      ? "bg-purple-50 border-purple-200 text-purple-800"
+                      : node.type === "HSN_SAC"
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      : node.type === "LEDGER_ACCOUNT"
+                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                      : "bg-slate-100 border-slate-200 text-slate-700"
+                  }`}
+                >
+                  <span className="font-bold opacity-75 mr-1">[{node.type}]</span> {node.label}
+                </span>
               ))}
             </div>
           </div>

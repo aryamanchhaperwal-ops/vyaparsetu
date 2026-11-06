@@ -29,7 +29,7 @@ def test_rag_assistant_qa(client):
     assert "Section 17(5)" in data["answer"]
     assert len(data["citations"]) > 0
     assert data["grounded"] is True
-    assert data["llm_provider"] == "BharatCode Hosted API"
+    assert data["ai_mode"] in ("PRODUCTION_BHARATCODE", "DEV_SIMULATION")
 
 def test_cashflow_and_credit_insights(client):
     headers = get_auth_header(client)

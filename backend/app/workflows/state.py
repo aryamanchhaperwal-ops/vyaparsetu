@@ -9,6 +9,9 @@ class TransactionWorkflowState(TypedDict):
     channel: str  # UPI, NEFT, CASH, CHEQUE
     reference_number: Optional[str]
     is_duplicate: bool
+    is_anomaly: bool
+    anomaly_score: float
+    anomaly_reasons: List[str]
     category: str
     sub_category: Optional[str]
     hsn_sac_code: Optional[str]
@@ -23,5 +26,7 @@ class TransactionWorkflowState(TypedDict):
     ledger_entries_created: int
     is_interstate: bool
     rationale: str
+    ai_source: Optional[str]
+    ai_mode: Optional[str]
     error: Optional[str]
 

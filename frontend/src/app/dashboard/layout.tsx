@@ -38,6 +38,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [currentRole, setCurrentRole] = useState<string>("OWNER");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
+  const [aiMode, setAiMode] = useState<string>("DEV_SIMULATION");
+
+  useEffect(() => {
+    api.getHealth()
+      .then((h) => setAiMode(h.ai_mode || "DEV_SIMULATION"))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Load initial user and workspaces
@@ -273,13 +280,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {aiMode === "PRODUCTION_BHARATCODE" ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                BharatCode Qwen 3.8 27B (Live)
+              </div>
+            ) : (
+              <div
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-bold"
+                title="Testing Mode: Deterministic Indic Engine active while BharatCode student tier is pending verification"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                AI Mode: DEV SIMULATION (Indic Engine)
+              </div>
+            )}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
               <span>{tenant?.tax_jurisdiction} &middot; {tenant?.currency_symbol} {tenant?.base_currency}</span>
-            </div>
-            <div className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
-              Simulated Sandbox
             </div>
           </div>
         </header>

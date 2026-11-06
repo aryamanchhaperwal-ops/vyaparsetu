@@ -11,10 +11,19 @@ from backend.app.llm.prompts import (
 
 logger = logging.getLogger("bharatcode_client")
 
+class BharatCodeAPIError(Exception):
+    """Raised when BharatCode API is unavailable or returns an error in production mode."""
+    def __init__(self, message: str, status_code: int = 503, response_body: Optional[str] = None):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+        self.response_body = response_body
+
 class BharatCodeClient:
     """
     Dedicated client for BharatCode Hosted LLM API.
     Adheres strictly to the constraint of using BharatCode as the sole LLM provider.
+    Supports explicitly separated PRODUCTION_BHARATCODE and DEV_SIMULATION modes.
     """
 
     def __init__(
@@ -22,11 +31,13 @@ class BharatCodeClient:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model_name: Optional[str] = None,
+        ai_mode: Optional[str] = None,
         timeout: float = 30.0
     ):
         self.api_key = api_key or settings.BHARATCODE_API_KEY
         self.base_url = (base_url or settings.BHARATCODE_BASE_URL).rstrip("/")
         self.model_name = model_name or settings.BHARATCODE_MODEL_NAME
+        self.ai_mode = ai_mode or getattr(settings, "AI_MODE", "DEV_SIMULATION")
         self.timeout = timeout
 
     async def chat_completion(
@@ -37,8 +48,9 @@ class BharatCodeClient:
         max_tokens: int = 1000
     ) -> Dict[str, Any]:
         """
-        Sends an asynchronous chat completion request to the BharatCode API.
-        Falls back to local Indic simulation if endpoint is unreachable or testing with mock keys.
+        Sends an asynchronous chat completion request.
+        - In PRODUCTION_BHARATCODE mode: calls real BharatCode endpoint; fails explicitly if unavailable.
+        - In DEV_SIMULATION mode: runs local deterministic Indic engine with explicit labels.
         """
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -53,10 +65,10 @@ class BharatCodeClient:
         if response_format:
             payload["response_format"] = response_format
 
-        # Attempt real authenticated call to BharatCode endpoint
-        if self.base_url and self.api_key:
+        # 1. PRODUCTION BHARATCODE MODE
+        if self.ai_mode == "PRODUCTION_BHARATCODE":
             masked_key = f"{self.api_key[:4]}...{self.api_key[-4:]}" if len(self.api_key) > 8 else "***"
-            logger.info(f"Dispatching authenticated request to BharatCode endpoint: {self.base_url} (Key: {masked_key})")
+            logger.info(f"Dispatching live request to BharatCode API: {self.base_url} (Model: {self.model_name})")
             try:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     response = await client.post(
@@ -67,19 +79,39 @@ class BharatCodeClient:
                     if response.status_code == 200:
                         data = response.json()
                         content = data["choices"][0]["message"]["content"]
-                        return {"content": content, "raw": data, "live_api": True}
-                    logger.warning(
-                        f"BharatCode API returned status {response.status_code}. "
-                        "Engaging deterministic Indic fallback engine."
+                        return {
+                            "content": content,
+                            "raw": data,
+                            "live_api": True,
+                            "source": "BHARATCODE_LIVE",
+                            "ai_mode": "PRODUCTION_BHARATCODE",
+                            "model": self.model_name
+                        }
+                    
+                    # Production mode must NOT silently fall back
+                    error_text = response.text
+                    logger.error(f"BharatCode API rejected request with HTTP {response.status_code}: {error_text}")
+                    raise BharatCodeAPIError(
+                        f"BharatCode API returned HTTP {response.status_code}: {error_text}",
+                        status_code=response.status_code,
+                        response_body=error_text
                     )
-            except Exception as e:
-                logger.warning(
-                    f"BharatCode API connection attempt failed ({type(e).__name__}: {e}). "
-                    "Utilizing internal Indic fallback engine."
+            except httpx.RequestError as e:
+                logger.error(f"BharatCode network error: {e}")
+                raise BharatCodeAPIError(
+                    f"Failed to connect to BharatCode API at {self.base_url}: {str(e)}",
+                    status_code=503
                 )
 
-        # Indic Simulation Fallback Engine for offline testing / sandbox
-        return self._simulate_indic_llm_response(messages)
+        # 2. DEV SIMULATION MODE (explicitly labelled)
+        logger.info("Executing transaction intelligence in DEV_SIMULATION mode.")
+        sim_result = self._simulate_indic_llm_response(messages)
+        sim_result["live_api"] = False
+        sim_result["source"] = "DEV_SIMULATION"
+        sim_result["ai_mode"] = "DEV_SIMULATION"
+        sim_result["model"] = "dev-indic-simulator-v1"
+        sim_result["notice"] = "DEVELOPMENT SIMULATION — Deterministic Indic simulation (Not a live BharatCode inference response)."
+        return sim_result
 
     def _simulate_indic_llm_response(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """
@@ -271,10 +303,10 @@ class BharatCodeClient:
         ]
         result = await self.chat_completion(messages, temperature=0.1)
         try:
-            return json.loads(result["content"])
+            parsed = json.loads(result["content"])
         except Exception as e:
-            logger.error(f"Failed to parse BharatCode output as JSON: {e}")
-            return {
+            logger.error(f"Failed to parse LLM output as JSON: {e}")
+            parsed = {
                 "category": "Uncategorized",
                 "sub_category": None,
                 "counterparty_name": None,
@@ -284,5 +316,12 @@ class BharatCodeClient:
                 "confidence_score": 0.5,
                 "rationale": "Fallback parsing due to non-JSON output"
             }
+
+        # Explicitly tag whether inference was live BharatCode or dev simulation
+        parsed["source"] = result.get("source", "DEV_SIMULATION")
+        parsed["ai_mode"] = result.get("ai_mode", "DEV_SIMULATION")
+        parsed["live_api"] = result.get("live_api", False)
+        parsed["notice"] = result.get("notice", "")
+        return parsed
 
 bharatcode_client = BharatCodeClient()

@@ -5,6 +5,7 @@ import {
   Plus,
   Upload,
   FileText,
+  FileSpreadsheet,
   Search,
   Filter,
   RefreshCw,
@@ -103,6 +104,20 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadMessage("Parsing and ingesting bank statement Excel (.xlsx/.xls)...");
+      const res = await api.uploadExcel(file);
+      setUploadMessage(`Successfully ingested ${res.inserted} transactions from Excel (${res.duplicates_skipped} duplicates skipped).`);
+      fetchTransactions();
+    } catch (err: any) {
+      alert("Excel upload failed: " + err.message);
+      setUploadMessage(null);
+    }
+  };
+
   const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -147,14 +162,21 @@ export default function TransactionsPage() {
           {/* CSV File Upload Input */}
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition-all">
             <Upload className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Upload Bank CSV</span>
+            <span>Upload CSV</span>
             <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+          </label>
+
+          {/* Excel File Upload Input */}
+          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition-all">
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Upload Excel</span>
+            <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="hidden" />
           </label>
 
           {/* PDF File Upload Input */}
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition-all">
             <FileText className="w-3.5 h-3.5 text-teal-600" />
-            <span>Upload PDF Statement</span>
+            <span>Upload PDF</span>
             <input type="file" accept=".pdf" onChange={handlePDFUpload} className="hidden" />
           </label>
 

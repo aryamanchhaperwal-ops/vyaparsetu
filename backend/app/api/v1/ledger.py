@@ -12,8 +12,29 @@ from backend.app.services.financial_engine import (
     generate_trial_balance,
     generate_financial_statements
 )
+from backend.app.services.reconciliation_service import reconcile_tenant_records
 
 router = APIRouter()
+
+@router.post("/reconcile")
+def run_reconciliation(
+    auto_link_threshold: float = 0.90,
+    tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db)
+):
+    """
+    Executes automated invoice-payment matching and bank statement reconciliation.
+    Links matching bank transactions with vendor bills and receipts based on invoice numbers, amounts, and date proximity.
+    """
+    return reconcile_tenant_records(db, tenant.id, auto_link_threshold=auto_link_threshold)
+
+@router.get("/reconciliation-status")
+def get_reconciliation_overview(
+    tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db)
+):
+    """Returns reconciliation health metrics, unlinked records, and suggested match candidates."""
+    return reconcile_tenant_records(db, tenant.id, auto_link_threshold=1.1)  # Reads without modifying
 
 @router.get("/accounts")
 def get_chart_of_accounts(

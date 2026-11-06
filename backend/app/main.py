@@ -35,6 +35,8 @@ def health_check():
         "status": "healthy",
         "project": settings.PROJECT_NAME,
         "environment": settings.ENVIRONMENT,
+        "ai_mode": getattr(settings, "AI_MODE", "DEV_SIMULATION"),
+        "ai_model": settings.BHARATCODE_MODEL_NAME,
         "llm_provider": "BharatCode Hosted API",
         "orchestration": "LangGraph",
         "storage": "Local & Multi-Tenant Partitioned",
