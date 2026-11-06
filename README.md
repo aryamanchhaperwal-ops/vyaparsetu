@@ -239,3 +239,4 @@ The automated browser test suite [`verify_browser_e2e.py`](file:///c:/Users/karm
 ---
 
 **Built with pride for the BharatCode Hackathon 2026 🇮🇳**
+

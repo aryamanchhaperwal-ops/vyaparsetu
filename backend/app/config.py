@@ -20,8 +20,8 @@ class Settings(BaseSettings):
 
     # BharatCode Hosted LLM
     BHARATCODE_API_KEY: str = "test_bharatcode_key"
-    BHARATCODE_BASE_URL: str = "https://api.bharatcode.ai/v1"
-    BHARATCODE_MODEL_NAME: str = "bharatcode-indic-llm-v1"
+    BHARATCODE_BASE_URL: str = "https://bharatcode.ai/api/model/v1"
+    BHARATCODE_MODEL_NAME: str = "qwen-3.8-27b"
 
     # Storage
     STORAGE_DIR: str = str(BASE_DIR / "backend" / "storage")
