@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_tenant, get_current_user
-from backend.app.models.user import Tenant, User
+from backend.app.core.dependencies import get_current_tenant, get_current_user, require_roles
+from backend.app.models.user import Tenant, User, Membership
 from backend.app.models.usage import AuditLog
 from backend.app.services.usage_service import (
     get_or_create_usage_record,
@@ -45,6 +45,7 @@ def upgrade_subscription_tier(
     req: UpgradePlanRequest,
     current_user: User = Depends(get_current_user),
     tenant: Tenant = Depends(get_current_tenant),
+    _role: Membership = Depends(require_roles(["OWNER", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
     if req.plan not in PLAN_LIMITS:
@@ -95,3 +96,4 @@ def get_tenant_audit_logs(
         }
         for l in logs
     ]
+

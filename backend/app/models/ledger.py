@@ -44,3 +44,4 @@ class LedgerEntry(Base):
     __table_args__ = (
         Index("ix_ledger_entries_tenant_date", "tenant_id", "entry_date"),
     )
+

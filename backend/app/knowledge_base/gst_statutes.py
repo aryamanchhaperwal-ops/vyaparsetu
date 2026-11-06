@@ -102,3 +102,4 @@ GST_STATUTORY_CORPUS: List[Dict[str, str]] = [
         "keywords": "gstr-3b, gstr3b, monthly return, due date 20th, tax payment return, self assessment"
     }
 ]
+

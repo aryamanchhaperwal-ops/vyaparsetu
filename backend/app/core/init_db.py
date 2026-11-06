@@ -104,3 +104,4 @@ if __name__ == "__main__":
     init_db(drop_all=False)
     seed_demo_data()
     print("Database tables initialized and demo data seeded successfully!")
+

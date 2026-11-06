@@ -129,3 +129,4 @@ def bank_statement_to_csv_string(records: List[Dict[str, Any]]) -> str:
     df = pd.DataFrame(records)
     export_cols = ["Date", "Narration", "Chq/Ref No", "Value Dt", "Withdrawal Amt", "Deposit Amt", "Closing Balance"]
     return df[export_cols].to_csv(index=False)
+

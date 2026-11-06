@@ -66,3 +66,4 @@ async def test_bharatcode_gst_statutory_assistant():
     assert "Section 16" in text
     assert "Section 17(5)" in text
     assert "GSTR-2B" in text or "invoice" in text
+

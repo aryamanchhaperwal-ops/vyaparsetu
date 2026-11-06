@@ -138,3 +138,4 @@ def compute_indicative_credit_insights(db: Session, tenant_id: str) -> Dict[str,
         "score_factors": factors,
         "notice": "INDICATIVE PRE-ASSESSMENT — NOT AN OFFICIAL CREDIT GUARANTEE"
     }
+

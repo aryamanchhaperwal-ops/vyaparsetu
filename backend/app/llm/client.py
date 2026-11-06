@@ -53,8 +53,10 @@ class BharatCodeClient:
         if response_format:
             payload["response_format"] = response_format
 
-        # Attempt call to BharatCode endpoint
-        if self.api_key and self.api_key != "test_bharatcode_key" and not self.base_url.startswith("https://api.bharatcode.ai"):
+        # Attempt real authenticated call to BharatCode endpoint
+        if self.base_url and self.api_key:
+            masked_key = f"{self.api_key[:4]}...{self.api_key[-4:]}" if len(self.api_key) > 8 else "***"
+            logger.info(f"Dispatching authenticated request to BharatCode endpoint: {self.base_url} (Key: {masked_key})")
             try:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     response = await client.post(
@@ -65,10 +67,16 @@ class BharatCodeClient:
                     if response.status_code == 200:
                         data = response.json()
                         content = data["choices"][0]["message"]["content"]
-                        return {"content": content, "raw": data}
-                    logger.warning(f"BharatCode API returned status {response.status_code}: {response.text}")
+                        return {"content": content, "raw": data, "live_api": True}
+                    logger.warning(
+                        f"BharatCode API returned status {response.status_code}. "
+                        "Engaging deterministic Indic fallback engine."
+                    )
             except Exception as e:
-                logger.warning(f"Failed to reach BharatCode endpoint: {e}. Utilizing Indic fallback engine.")
+                logger.warning(
+                    f"BharatCode API connection attempt failed ({type(e).__name__}: {e}). "
+                    "Utilizing internal Indic fallback engine."
+                )
 
         # Indic Simulation Fallback Engine for offline testing / sandbox
         return self._simulate_indic_llm_response(messages)

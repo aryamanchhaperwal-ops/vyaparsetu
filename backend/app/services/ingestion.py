@@ -136,3 +136,4 @@ def ingest_transactions_to_tenant(
 
     db.commit()
     return inserted, duplicates
+

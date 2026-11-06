@@ -26,3 +26,4 @@ def get_credit_insights(
 ):
     """Returns indicative MSME credit health score and working capital insights."""
     return compute_indicative_credit_insights(db, tenant.id)
+

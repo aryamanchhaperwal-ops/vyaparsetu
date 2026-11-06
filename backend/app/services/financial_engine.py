@@ -277,3 +277,84 @@ def generate_trial_balance(db: Session, tenant_id: str) -> Dict[str, Any]:
         "total_credit": f"{total_credit:.2f}",
         "accounts": rows
     }
+
+
+def generate_financial_statements(db: Session, tenant_id: str) -> Dict[str, Any]:
+    """
+    Computes standard financial statements:
+    1. Profit & Loss Statement (Income vs Expenses = Net Profit)
+    2. Balance Sheet (Assets vs Liabilities + Equity)
+    """
+    accounts = db.query(LedgerAccount).filter(LedgerAccount.tenant_id == tenant_id).order_by(LedgerAccount.code).all()
+
+    p_and_l_revenues = []
+    p_and_l_expenses = []
+    balance_sheet_assets = []
+    balance_sheet_liabilities = []
+    balance_sheet_equity = []
+
+    total_revenue = Decimal("0.00")
+    total_expenses = Decimal("0.00")
+    total_assets = Decimal("0.00")
+    total_liabilities = Decimal("0.00")
+    total_equity_base = Decimal("0.00")
+
+    for acc in accounts:
+        entries = db.query(LedgerEntry).filter(
+            LedgerEntry.tenant_id == tenant_id,
+            LedgerEntry.account_id == acc.id
+        ).all()
+        dr = sum((e.debit for e in entries), Decimal("0.00"))
+        cr = sum((e.credit for e in entries), Decimal("0.00"))
+
+        if acc.account_type == "REVENUE":
+            bal = cr - dr
+            total_revenue += bal
+            p_and_l_revenues.append({"code": acc.code, "name": acc.name, "amount": f"{bal:.2f}"})
+        elif acc.account_type == "EXPENSE":
+            bal = dr - cr
+            total_expenses += bal
+            p_and_l_expenses.append({"code": acc.code, "name": acc.name, "amount": f"{bal:.2f}"})
+        elif acc.account_type == "ASSET":
+            bal = dr - cr
+            total_assets += bal
+            balance_sheet_assets.append({"code": acc.code, "name": acc.name, "amount": f"{bal:.2f}"})
+        elif acc.account_type == "LIABILITY":
+            bal = cr - dr
+            total_liabilities += bal
+            balance_sheet_liabilities.append({"code": acc.code, "name": acc.name, "amount": f"{bal:.2f}"})
+        elif acc.account_type == "EQUITY":
+            bal = cr - dr
+            total_equity_base += bal
+            balance_sheet_equity.append({"code": acc.code, "name": acc.name, "amount": f"{bal:.2f}"})
+
+    net_profit = total_revenue - total_expenses
+    total_equity_with_retained = total_equity_base + net_profit
+    balance_sheet_equity.append({
+        "code": "RETAINED",
+        "name": "Current Period Net Profit / (Loss)",
+        "amount": f"{net_profit:.2f}"
+    })
+
+    is_balanced = (total_assets == (total_liabilities + total_equity_with_retained))
+
+    return {
+        "tenant_id": tenant_id,
+        "profit_and_loss": {
+            "revenues": p_and_l_revenues,
+            "total_revenue": f"{total_revenue:.2f}",
+            "expenses": p_and_l_expenses,
+            "total_expenses": f"{total_expenses:.2f}",
+            "net_profit": f"{net_profit:.2f}"
+        },
+        "balance_sheet": {
+            "assets": balance_sheet_assets,
+            "total_assets": f"{total_assets:.2f}",
+            "liabilities": balance_sheet_liabilities,
+            "total_liabilities": f"{total_liabilities:.2f}",
+            "equity": balance_sheet_equity,
+            "total_equity": f"{total_equity_with_retained:.2f}",
+            "is_balanced": is_balanced
+        }
+    }
+

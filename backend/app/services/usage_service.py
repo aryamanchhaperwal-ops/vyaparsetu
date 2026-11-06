@@ -102,3 +102,4 @@ def log_audit_trail(
     )
     db.add(audit)
     db.commit()
+

@@ -97,3 +97,4 @@ def test_simulated_gstr1_and_gstr3b_reports(client):
     assert file_data["status"] == "SIMULATED_FILED"
     assert "arn" in file_data
     assert "TEST SANDBOX ONLY" in file_data["notice"]
+

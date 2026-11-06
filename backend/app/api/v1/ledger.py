@@ -7,7 +7,11 @@ from backend.app.core.dependencies import get_current_tenant
 from backend.app.models.user import Tenant
 from backend.app.models.transaction import Transaction
 from backend.app.models.ledger import LedgerAccount, LedgerEntry
-from backend.app.services.financial_engine import post_transaction_to_ledger, generate_trial_balance
+from backend.app.services.financial_engine import (
+    post_transaction_to_ledger,
+    generate_trial_balance,
+    generate_financial_statements
+)
 
 router = APIRouter()
 
@@ -62,6 +66,14 @@ def get_trial_balance(
 ):
     return generate_trial_balance(db, tenant.id)
 
+@router.get("/financial-statements")
+def get_financial_statements(
+    tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db)
+):
+    """Returns real-time Profit & Loss and Balance Sheet for the business workspace."""
+    return generate_financial_statements(db, tenant.id)
+
 @router.get("/entries")
 def get_ledger_entries(
     account_code: Optional[str] = None,
@@ -88,3 +100,4 @@ def get_ledger_entries(
         }
         for e in entries
     ]
+

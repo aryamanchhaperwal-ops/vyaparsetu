@@ -59,3 +59,4 @@ class GSTReport(Base):
     __table_args__ = (
         Index("ix_gst_reports_tenant_period_type", "tenant_id", "period", "report_type", unique=True),
     )
+

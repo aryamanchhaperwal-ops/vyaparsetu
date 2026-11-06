@@ -8,6 +8,9 @@ class TransactionBase(BaseModel):
     description: str
     raw_narration: str
     amount: Decimal = Field(..., gt=0)
+    currency: str = Field("INR", description="ISO 4217 Currency Code (INR, USD, AED, EUR, GBP)")
+    exchange_rate: Decimal = Field(Decimal("1.0"), description="Exchange rate to tenant base currency")
+    base_amount: Optional[Decimal] = None
     type: str = Field(..., description="DEBIT or CREDIT")
     channel: str = Field("UPI", description="UPI, NEFT, RTGS, CASH, CHEQUE")
     reference_number: Optional[str] = None

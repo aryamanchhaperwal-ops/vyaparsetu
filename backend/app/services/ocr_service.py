@@ -115,6 +115,13 @@ def process_and_save_receipt(
     # 3. Parse invoice entities
     parsed = parse_receipt_text_to_invoice(raw_text)
 
+    # Prepare JSON-serializable dictionary for SQLite JSON column
+    json_safe_extracted = {
+        k: (v.isoformat() if isinstance(v, (datetime.date, datetime.datetime))
+            else (str(v) if isinstance(v, Decimal) else v))
+        for k, v in parsed.items()
+    }
+
     # 4. Save Receipt record
     receipt = Receipt(
         tenant_id=tenant_id,
@@ -129,10 +136,11 @@ def process_and_save_receipt(
         igst_amount=parsed["igst_amount"],
         file_path=file_path,
         ocr_raw_text=raw_text,
-        ocr_extracted_data=parsed,
+        ocr_extracted_data=json_safe_extracted,
         status="EXTRACTED"
     )
     db.add(receipt)
     db.commit()
     db.refresh(receipt)
     return receipt
+

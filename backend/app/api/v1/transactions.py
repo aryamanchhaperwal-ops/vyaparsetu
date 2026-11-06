@@ -82,3 +82,4 @@ def get_transaction(
     if not tx:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
     return tx
+

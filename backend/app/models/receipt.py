@@ -35,3 +35,4 @@ class Receipt(Base):
     __table_args__ = (
         Index("ix_receipts_tenant_invoice", "tenant_id", "invoice_number"),
     )
+

@@ -284,3 +284,4 @@ def generate_gstr3b_summary(db: Session, tenant_id: str, period: str) -> Dict[st
         },
         "compliance_notice": "SIMULATED GSTR-3B RETURN — BHARATCODE MSME TEST SANDBOX"
     }
+

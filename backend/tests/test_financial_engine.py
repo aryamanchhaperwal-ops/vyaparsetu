@@ -86,3 +86,4 @@ def test_ledger_posting_and_trial_balance(client):
     tb = tb_res.json()
     assert tb["is_balanced"] is True
     assert tb["total_debit"] == tb["total_credit"]
+

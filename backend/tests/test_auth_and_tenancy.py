@@ -109,3 +109,4 @@ def test_tenant_context_isolation(client):
     forbidden_res = client.get("/api/v1/tenants/current", headers=ramesh_bad_headers)
     assert forbidden_res.status_code == 403
     assert "Access forbidden" in forbidden_res.json()["detail"]
+

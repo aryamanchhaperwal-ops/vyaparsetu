@@ -30,3 +30,4 @@ class WorkflowRun(Base):
     __table_args__ = (
         Index("ix_workflow_runs_tenant_status", "tenant_id", "status"),
     )
+

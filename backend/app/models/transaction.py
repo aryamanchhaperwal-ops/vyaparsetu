@@ -16,6 +16,9 @@ class Transaction(Base):
     raw_narration = Column(String(1000), nullable=False)
     
     amount = Column(Numeric(14, 2), nullable=False)
+    currency = Column(String(3), default="INR", nullable=False)  # ISO 4217 Currency Code
+    exchange_rate = Column(Numeric(10, 4), default=1.0, nullable=False)  # Exchange rate relative to tenant's base currency
+    base_amount = Column(Numeric(14, 2), nullable=True)  # Amount converted to tenant's base currency
     type = Column(String(10), nullable=False)  # DEBIT, CREDIT
     channel = Column(String(50), default="UPI", nullable=False)  # UPI, NEFT, RTGS, CASH, CHEQUE
     reference_number = Column(String(100), nullable=True, index=True)  # UTR or UPI ref
@@ -43,3 +46,4 @@ class Transaction(Base):
         Index("ix_transactions_tenant_date", "tenant_id", "transaction_date"),
         Index("ix_transactions_tenant_status", "tenant_id", "status"),
     )
+

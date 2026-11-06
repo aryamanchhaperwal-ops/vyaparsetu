@@ -24,3 +24,4 @@ class TransactionWorkflowState(TypedDict):
     is_interstate: bool
     rationale: str
     error: Optional[str]
+

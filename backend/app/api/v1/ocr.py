@@ -1,4 +1,5 @@
 from typing import List
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -7,9 +8,14 @@ from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_tenant
 from backend.app.models.user import Tenant
 from backend.app.models.receipt import Receipt
+from backend.app.models.transaction import Transaction
 from backend.app.services.ocr_service import process_and_save_receipt
 
 router = APIRouter()
+
+class ReconcileReceiptRequest(BaseModel):
+    receipt_id: str
+    transaction_id: str
 
 @router.post("/upload")
 async def upload_receipt(
@@ -62,3 +68,29 @@ def list_receipts(
         }
         for r in receipts
     ]
+
+@router.post("/reconcile")
+def link_receipt_to_transaction(
+    req: ReconcileReceiptRequest,
+    tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db)
+):
+    """Manually links an invoice/receipt to a bank transaction and marks both reconciled."""
+    rcpt = db.query(Receipt).filter(Receipt.id == req.receipt_id, Receipt.tenant_id == tenant.id).first()
+    if not rcpt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found")
+    tx = db.query(Transaction).filter(Transaction.id == req.transaction_id, Transaction.tenant_id == tenant.id).first()
+    if not tx:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
+
+    rcpt.transaction_id = tx.id
+    rcpt.status = "RECONCILED"
+    tx.is_reconciled = True
+    db.commit()
+    return {
+        "status": "success",
+        "receipt_id": rcpt.id,
+        "transaction_id": tx.id,
+        "message": "Receipt successfully matched and reconciled to transaction."
+    }
+

@@ -52,7 +52,13 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         state_code=user_in.state_code or "27",
         business_category="Retail/Wholesale",
         turnover_tier="Micro (< 5 Cr)",
-        subscription_plan="FREE"
+        subscription_plan="FREE",
+        country_code="IN",
+        tax_jurisdiction="INDIA_GST",
+        base_currency="INR",
+        currency_symbol="₹",
+        financial_year_start_month=4,
+        timezone="Asia/Kolkata"
     )
     db.add(tenant)
     db.flush()
@@ -112,14 +118,23 @@ def create_workspace(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    currency_map = {"INR": "₹", "USD": "$", "AED": "AED ", "EUR": "€", "GBP": "£"}
+    curr_sym = tenant_in.currency_symbol or currency_map.get(tenant_in.base_currency, "$")
+
     tenant = Tenant(
         name=tenant_in.name,
         trade_name=tenant_in.trade_name or tenant_in.name,
-        simulated_gstin=generate_simulated_gstin(tenant_in.state_code),
+        simulated_gstin=tenant_in.simulated_gstin or generate_simulated_gstin(tenant_in.state_code),
         state_code=tenant_in.state_code,
         business_category=tenant_in.business_category,
         turnover_tier=tenant_in.turnover_tier,
-        subscription_plan="FREE"
+        subscription_plan="FREE",
+        country_code=tenant_in.country_code or "IN",
+        tax_jurisdiction=tenant_in.tax_jurisdiction or ("INDIA_GST" if tenant_in.country_code == "IN" else "STANDARD_TAX"),
+        base_currency=tenant_in.base_currency or "INR",
+        currency_symbol=curr_sym,
+        financial_year_start_month=tenant_in.financial_year_start_month or (4 if tenant_in.country_code in ("IN", "GB") else 1),
+        timezone=tenant_in.timezone or ("Asia/Kolkata" if tenant_in.country_code == "IN" else "UTC")
     )
     db.add(tenant)
     db.flush()
@@ -136,3 +151,4 @@ def create_workspace(
     # Seed MSME standard accounts
     seed_standard_accounts_for_tenant(db, tenant.id)
     return tenant
+

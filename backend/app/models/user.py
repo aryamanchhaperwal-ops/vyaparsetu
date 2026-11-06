@@ -1,6 +1,6 @@
 import uuid
 import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -30,6 +30,15 @@ class Tenant(Base):
     business_category = Column(String(100), default="Retail/Wholesale", nullable=False)
     turnover_tier = Column(String(50), default="Micro (< 5 Cr)", nullable=False)
     subscription_plan = Column(String(50), default="FREE", nullable=False)  # FREE, PRO, ENTERPRISE
+
+    # Global Multi-Tenant & Regional Localization Settings
+    country_code = Column(String(3), default="IN", nullable=False)  # ISO 3166-1 alpha-2: IN, US, AE, GB, SG
+    tax_jurisdiction = Column(String(50), default="INDIA_GST", nullable=False)  # INDIA_GST, US_SALES_TAX, UAE_VAT, UK_VAT
+    base_currency = Column(String(3), default="INR", nullable=False)  # INR, USD, AED, EUR, GBP
+    currency_symbol = Column(String(10), default="₹", nullable=False)  # ₹, $, AED, €, £
+    financial_year_start_month = Column(Integer, default=4, nullable=False)  # 4 for April (India/UK), 1 for Jan (US/UAE)
+    timezone = Column(String(50), default="Asia/Kolkata", nullable=False)  # e.g. Asia/Kolkata, America/New_York, Asia/Dubai
+
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
     memberships = relationship("Membership", back_populates="tenant", cascade="all, delete-orphan")
@@ -53,3 +62,4 @@ class Membership(Base):
 
     user = relationship("User", back_populates="memberships")
     tenant = relationship("Tenant", back_populates="memberships")
+

@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_tenant
-from backend.app.models.user import Tenant
+from backend.app.core.dependencies import get_current_tenant, require_roles
+from backend.app.models.user import Tenant, Membership
 from backend.app.models.gst import GSTReport
 from backend.app.services.gst_calculator import (
     calculate_transaction_gst,
@@ -73,6 +73,7 @@ def get_gstr3b_report(
 def simulate_return_filing(
     req: FileSimulatedReturnRequest,
     tenant: Tenant = Depends(get_current_tenant),
+    _role: Membership = Depends(require_roles(["OWNER", "ADMIN", "ACCOUNTANT"])),
     db: Session = Depends(get_db)
 ):
     """Simulates filing of GSTR-1 or GSTR-3B return in the test sandbox."""
@@ -123,3 +124,4 @@ def simulate_return_filing(
         "arn": f"AA{tenant.state_code}{datetime.datetime.utcnow().strftime('%m%y')}{report.id[:8].upper()}",
         "notice": "SIMULATED FILING — TEST SANDBOX ONLY (NO GOVERNMENT PORTAL CONNECTION)"
     }
+

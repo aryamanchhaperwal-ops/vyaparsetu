@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Callable
 from fastapi import Depends, HTTPException, Header, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -29,20 +29,20 @@ def get_current_user(
         raise credentials_exception
     return user
 
-def get_current_tenant(
+def get_current_membership(
     x_tenant_id: Optional[str] = Header(None, alias="X-Tenant-ID"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> Tenant:
+) -> Membership:
+    """Resolves active membership ensuring tenant context and role validation."""
     if not x_tenant_id:
-        # Default to first active tenant if header not provided
         membership = db.query(Membership).filter(Membership.user_id == current_user.id).first()
         if not membership:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User does not belong to any business tenant"
             )
-        return membership.tenant
+        return membership
 
     membership = (
         db.query(Membership)
@@ -54,4 +54,22 @@ def get_current_tenant(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access forbidden: You are not a member of this business tenant"
         )
+    return membership
+
+def get_current_tenant(
+    membership: Membership = Depends(get_current_membership)
+) -> Tenant:
+    """Returns the validated tenant for the current request."""
     return membership.tenant
+
+def require_roles(allowed_roles: List[str]) -> Callable:
+    """Enforces Role-Based Access Control (OWNER, ADMIN, ACCOUNTANT, EMPLOYEE)."""
+    def role_verifier(membership: Membership = Depends(get_current_membership)) -> Membership:
+        normalized_allowed = [r.upper() for r in allowed_roles]
+        if membership.role.upper() not in normalized_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: Action requires one of roles: {allowed_roles}. Current role: {membership.role}"
+            )
+        return membership
+    return role_verifier

@@ -41,3 +41,4 @@ class AuditLog(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
 
     tenant = relationship("Tenant", back_populates="audit_logs")
+

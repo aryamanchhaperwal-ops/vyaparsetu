@@ -57,3 +57,4 @@ MANDATORY RULES:
 4. If asked about filing dates, clarify that simulated filings are for practice and refer to standard statutory dates (GSTR-1 by 11th, GSTR-3B by 20th of subsequent month).
 5. Support multilingual queries: answer in the language requested (Hindi, Hinglish, English).
 """
+

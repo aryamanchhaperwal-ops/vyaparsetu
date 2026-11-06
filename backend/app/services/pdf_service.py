@@ -84,3 +84,4 @@ def parse_bank_statement_pdf(pdf_bytes: bytes) -> List[Dict[str, Any]]:
             continue
 
     return records
+
