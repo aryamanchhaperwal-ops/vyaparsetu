@@ -21,6 +21,8 @@ htmlcov/
 
 # Databases
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 *.sqlite
 vyaparsetu.db

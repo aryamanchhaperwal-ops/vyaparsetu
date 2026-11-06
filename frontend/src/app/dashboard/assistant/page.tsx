@@ -73,10 +73,10 @@ export default function AssistantPage() {
         id: `ast_${Date.now()}`,
         sender: "assistant",
         text: res.answer,
-        sources: (res.retrieved_statutes || []).map((s: any) => ({
-          section: s.section,
+        sources: (res.citations || res.retrieved_statutes || []).map((s: any) => ({
+          section: s.citation || s.section || s.id,
           title: s.title,
-          excerpt: s.content?.slice(0, 180) + "...",
+          excerpt: s.excerpt || (s.content ? s.content.slice(0, 180) + "..." : undefined),
         })),
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };

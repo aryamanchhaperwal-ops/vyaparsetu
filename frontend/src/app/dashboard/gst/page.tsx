@@ -231,19 +231,19 @@ export default function GSTPage() {
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs text-slate-500 uppercase font-semibold">Total Taxable Value</span>
               <p className="text-2xl font-bold text-slate-900 mt-2">
-                ₹{gstr1?.summary?.total_taxable_value || "0.00"}
+                ₹{gstr1?.total_taxable_value || gstr1?.summary?.total_taxable_value || "0.00"}
               </p>
             </div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs text-slate-500 uppercase font-semibold">Total Output Tax</span>
               <p className="text-2xl font-bold text-emerald-700 mt-2">
-                ₹{gstr1?.summary?.total_tax || "0.00"}
+                ₹{gstr1?.total_tax || gstr1?.summary?.total_tax || "0.00"}
               </p>
             </div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs text-slate-500 uppercase font-semibold">Total Invoice Count</span>
               <p className="text-2xl font-bold text-slate-900 mt-2">
-                {gstr1?.summary?.total_invoices || 0}
+                {gstr1?.table_4_b2b?.length + (gstr1?.table_7_b2c?.length || 0) || gstr1?.summary?.total_invoices || 0}
               </p>
             </div>
           </div>
@@ -254,14 +254,14 @@ export default function GSTPage() {
               Table 4: Taxable Outward B2B Invoices (With Counterparty GSTIN)
             </div>
             <div className="p-4 text-xs text-slate-500">
-              {(gstr1?.b2b_invoices || []).length === 0 ? (
+              {(gstr1?.table_4_b2b || gstr1?.b2b_invoices || []).length === 0 ? (
                 <div className="text-center py-6 text-slate-400">No B2B invoices recorded for this period.</div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {gstr1.b2b_invoices.map((inv: any, idx: number) => (
+                  {(gstr1?.table_4_b2b || gstr1?.b2b_invoices || []).map((inv: any, idx: number) => (
                     <div key={idx} className="py-2.5 flex justify-between">
                       <span className="font-mono">{inv.counterparty_gstin}</span>
-                      <span className="font-bold">₹{inv.total_amount}</span>
+                      <span className="font-bold">₹{inv.total_amount || inv.total_value}</span>
                     </div>
                   ))}
                 </div>
@@ -295,19 +295,19 @@ export default function GSTPage() {
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs text-slate-500 uppercase font-semibold">Total Output Tax (Table 3.1)</span>
               <p className="text-2xl font-bold text-slate-900 mt-2">
-                ₹{gstr3b?.table_3_1_outward?.total_tax || "0.00"}
+                ₹{gstr3b?.table_3_1_outward?.total_tax || (parseFloat(gstr3b?.table_3_1_outward_supplies?.central_tax || "0") + parseFloat(gstr3b?.table_3_1_outward_supplies?.state_tax || "0") + parseFloat(gstr3b?.table_3_1_outward_supplies?.integrated_tax || "0")).toFixed(2)}
               </p>
             </div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs text-slate-500 uppercase font-semibold">Eligible ITC (Table 4)</span>
               <p className="text-2xl font-bold text-blue-700 mt-2">
-                ₹{gstr3b?.table_4_itc?.eligible_itc || "0.00"}
+                ₹{gstr3b?.table_4_itc?.eligible_itc || (parseFloat(gstr3b?.table_4_eligible_itc?.all_other_itc_cgst || "0") + parseFloat(gstr3b?.table_4_eligible_itc?.all_other_itc_sgst || "0") + parseFloat(gstr3b?.table_4_eligible_itc?.all_other_itc_igst || "0")).toFixed(2)}
               </p>
             </div>
             <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-300 shadow-sm">
               <span className="text-xs text-emerald-800 uppercase font-semibold">Net Cash Payable (Table 6.1)</span>
               <p className="text-2xl font-bold text-emerald-900 mt-2">
-                ₹{gstr3b?.table_6_1_payment?.net_cash_payable || "0.00"}
+                ₹{gstr3b?.table_6_1_payment?.net_cash_payable || gstr3b?.table_6_1_payment_of_tax?.total_net_cash_payable || "0.00"}
               </p>
             </div>
           </div>
@@ -319,19 +319,19 @@ export default function GSTPage() {
               <div className="p-3 bg-slate-50 rounded-lg">
                 <span className="text-slate-500 font-semibold">CGST (Central Tax)</span>
                 <p className="font-bold text-slate-800 text-base mt-1">
-                  ₹{gstr3b?.table_3_1_outward?.cgst || "0.00"}
+                  ₹{gstr3b?.table_3_1_outward?.cgst || gstr3b?.table_3_1_outward_supplies?.central_tax || "0.00"}
                 </p>
               </div>
               <div className="p-3 bg-slate-50 rounded-lg">
                 <span className="text-slate-500 font-semibold">SGST (State Tax)</span>
                 <p className="font-bold text-slate-800 text-base mt-1">
-                  ₹{gstr3b?.table_3_1_outward?.sgst || "0.00"}
+                  ₹{gstr3b?.table_3_1_outward?.sgst || gstr3b?.table_3_1_outward_supplies?.state_tax || "0.00"}
                 </p>
               </div>
               <div className="p-3 bg-slate-50 rounded-lg">
                 <span className="text-slate-500 font-semibold">IGST (Integrated Tax)</span>
                 <p className="font-bold text-slate-800 text-base mt-1">
-                  ₹{gstr3b?.table_3_1_outward?.igst || "0.00"}
+                  ₹{gstr3b?.table_3_1_outward?.igst || gstr3b?.table_3_1_outward_supplies?.integrated_tax || "0.00"}
                 </p>
               </div>
             </div>
