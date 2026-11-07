@@ -238,12 +238,28 @@ export const api = {
       body: JSON.stringify({ period, report_type: reportType }),
     }),
 
-  // AI Assistant (RAG)
+  // AI Assistant & Unified RAG
   askAssistant: (query: string, language: string = "Hinglish") =>
     fetchWithAuth("/api/v1/rag/ask", {
       method: "POST",
       body: JSON.stringify({ query, language }),
     }),
+  queryRAG: (query: string, language: string = "English", forceStrategy?: string) =>
+    fetchWithAuth("/api/v1/rag/query", {
+      method: "POST",
+      body: JSON.stringify({ query, language, force_strategy: forceStrategy }),
+    }),
+  getRAGDocuments: () => fetchWithAuth("/api/v1/rag/documents"),
+  uploadRAGDocument: (file: File, docType?: string) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (docType) fd.append("doc_type", docType);
+    return fetchWithAuth("/api/v1/rag/documents/upload", { method: "POST", body: fd });
+  },
+  deleteRAGDocument: (docId: string) =>
+    fetchWithAuth(`/api/v1/rag/documents/${docId}`, { method: "DELETE" }),
+  getGraphTrail: (query: string, trailType: "vendor" | "reconciliation" = "vendor") =>
+    fetchWithAuth(`/api/v1/rag/graph-trail?query=${encodeURIComponent(query)}&trail_type=${trailType}`),
 
   // Analytics & Credit Insights
   getCashFlow: () => fetchWithAuth("/api/v1/analytics/cashflow"),
@@ -260,4 +276,37 @@ export const api = {
       body: JSON.stringify({ plan }),
     }),
   getAuditLogs: () => fetchWithAuth("/api/v1/subscription/audit-logs"),
+
+  // Autonomous Command Centre & Conversational Agent
+  executeCommand: (data: { instruction: string; language?: string; financial_period?: string; idempotency_key?: string; conversation_id?: string }) =>
+    fetchWithAuth("/api/v1/command/execute", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  executeUploadCommand: (formData: FormData) =>
+    fetchWithAuth("/api/v1/command/execute-upload", {
+      method: "POST",
+      body: formData,
+    }),
+  approveCommandRun: (data: { run_id: string; approved: boolean; modifications?: any; idempotency_key?: string }) =>
+    fetchWithAuth("/api/v1/command/approve", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getCommandRuns: (limit: number = 20) => fetchWithAuth(`/api/v1/command/runs?limit=${limit}`),
+  getCommandRun: (runId: string) => fetchWithAuth(`/api/v1/command/runs/${runId}`),
+  getConversationHistory: (conversationId: string) =>
+    fetchWithAuth(`/api/v1/command/conversation/${conversationId}`),
+  clearConversationHistory: (conversationId: string) =>
+    fetchWithAuth(`/api/v1/command/conversation/${conversationId}`, { method: "DELETE" }),
+  parseVoiceTranscript: (transcript: string, language: string = "en", financial_period?: string) =>
+    fetchWithAuth("/api/v1/command/voice-parse", {
+      method: "POST",
+      body: JSON.stringify({ transcript, language, financial_period }),
+    }),
+  formatSpokenResponse: (text: string, language: string = "en") =>
+    fetchWithAuth("/api/v1/command/speak", {
+      method: "POST",
+      body: JSON.stringify({ text, language }),
+    }),
 };

@@ -22,7 +22,8 @@ import {
   Globe2,
   ShieldCheck,
   Menu,
-  X
+  X,
+  TerminalSquare
 } from "lucide-react";
 import { api, User, Tenant, Membership, clearStoredToken, setStoredTenantId, getStoredTenantId } from "@/lib/api";
 import { useLanguage } from "@/lib/LanguageContext";
@@ -82,6 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const navItems = [
+    { name: t("command_centre") || "Command Centre", href: "/dashboard/command", icon: TerminalSquare },
     { name: t("dashboard"), href: "/dashboard", icon: LayoutDashboard },
     { name: t("transactions"), href: "/dashboard/transactions", icon: Receipt },
     { name: t("invoices"), href: "/dashboard/invoices", icon: FileSpreadsheet },

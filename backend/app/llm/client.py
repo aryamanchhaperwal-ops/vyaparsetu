@@ -11,6 +11,79 @@ from backend.app.llm.prompts import (
 
 logger = logging.getLogger("bharatcode_client")
 
+import re
+import json
+import logging
+from typing import Dict, Any, List, Optional, Tuple
+import httpx
+from backend.app.config import settings
+from backend.app.llm.prompts import (
+    SYSTEM_TRANSACTION_CLASSIFIER,
+    PROMPT_CLASSIFY_TRANSACTION,
+    SYSTEM_GST_ASSISTANT
+)
+
+logger = logging.getLogger("bharatcode_client")
+
+VALID_GST_RATES = {0.0, 0.1, 0.25, 1.5, 3.0, 5.0, 12.0, 18.0, 28.0}
+
+def validate_and_normalize_gst_rate(rate: Any) -> Tuple[float, Optional[str]]:
+    """
+    Validates GST rate against authoritative Indian GST tax slabs under CGST Act, 2017.
+    If non-standard, snaps to the closest legal statutory slab and provides an advisory warning.
+    """
+    try:
+        r = float(rate)
+    except (ValueError, TypeError):
+        return 18.0, "Invalid GST rate specified; normalized to standard 18% slab."
+
+    if r in VALID_GST_RATES:
+        return r, None
+
+    closest = min(VALID_GST_RATES, key=lambda x: abs(x - r))
+    return closest, f"Non-statutory GST rate {r}% normalized to closest legal slab {closest}%."
+
+def validate_hsn_sac(code: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Validates format of HSN (Goods: 2, 4, 6, 8 digits) or SAC (Services: 99xxxx) code.
+    """
+    if not code:
+        return None, None
+    cleaned = re.sub(r"[^\d]", "", str(code)).strip()
+    if not cleaned:
+        return None, "HSN/SAC format invalid."
+    if len(cleaned) in (2, 4, 6, 8):
+        return cleaned, None
+    if len(cleaned) > 8:
+        return cleaned[:8], f"HSN code truncated to standard 8 digits ({cleaned[:8]})."
+    return cleaned, None
+
+def generate_accounting_suggestions(category: str, direction: str, gst_rate: float) -> List[str]:
+    """Generates authoritative double-entry bookkeeping and GST ITC suggestions."""
+    suggestions = []
+    if direction == "DEBIT":
+        acc_map = {
+            "Raw Materials": "Debit: 5010 (Cost of Goods Sold / Raw Materials)",
+            "Logistics & Transport": "Debit: 5030 (Logistics & Freight - check RCM under Sec 9(3))",
+            "Rent & Utilities": "Debit: 5020 (Commercial Property Rent / Utilities)",
+            "Salaries & Wages": "Debit: 5040 (Salaries & Wages - exempt under Sched III)",
+            "Office & Miscellaneous": "Debit: 5090 (Office & Sundry Operating Expense)",
+            "Capital Asset": "Debit: 1050 (Plant, Machinery & Office Equipment)",
+            "Tax Payment": "Debit: 2010 (GST Liability Cash Ledger Offset)",
+        }
+        suggestions.append(acc_map.get(category, "Debit: 5090 (General Business Expense)"))
+        suggestions.append("Credit: 1020 (Bank Account) or 1010 (Cash in Hand)")
+        if category == "Salaries & Wages":
+            suggestions.append("Schedule III: Employee remuneration out of scope of GST.")
+        elif gst_rate > 0:
+            suggestions.append("ITC eligible under Section 16(1) CGST Act subject to supplier GSTR-2B reflection.")
+    else:
+        suggestions.append("Debit: 1020 (Bank Account) or 1010 (Cash in Hand)")
+        suggestions.append("Credit: 4010 (Sales Revenue / Outward Taxable Supply)")
+        if gst_rate > 0:
+            suggestions.append(f"Credit: Output GST Liability ({gst_rate}%) under Section 9 CGST Act.")
+    return suggestions
+
 class BharatCodeAPIError(Exception):
     """Raised when BharatCode API is unavailable or returns an error in production mode."""
     def __init__(self, message: str, status_code: int = 503, response_body: Optional[str] = None):
@@ -23,7 +96,7 @@ class BharatCodeClient:
     """
     Dedicated client for BharatCode Hosted LLM API.
     Adheres strictly to the constraint of using BharatCode as the sole LLM provider.
-    Supports explicitly separated PRODUCTION_BHARATCODE and DEV_SIMULATION modes.
+    Supports explicitly separated PRODUCTION_LIVE / PRODUCTION_BHARATCODE and DEV_SIMULATION modes.
     """
 
     def __init__(
@@ -32,7 +105,7 @@ class BharatCodeClient:
         base_url: Optional[str] = None,
         model_name: Optional[str] = None,
         ai_mode: Optional[str] = None,
-        timeout: float = 30.0
+        timeout: float = 90.0
     ):
         self.api_key = api_key or settings.BHARATCODE_API_KEY
         self.base_url = (base_url or settings.BHARATCODE_BASE_URL).rstrip("/")
@@ -40,18 +113,27 @@ class BharatCodeClient:
         self.ai_mode = ai_mode or getattr(settings, "AI_MODE", "DEV_SIMULATION")
         self.timeout = timeout
 
+    @property
+    def is_live(self) -> bool:
+        mode = (self.ai_mode or getattr(settings, "AI_MODE", "DEV_SIMULATION")).upper()
+        return mode in ("PRODUCTION_LIVE", "PRODUCTION_BHARATCODE")
+
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.1,
         response_format: Optional[Dict[str, str]] = None,
-        max_tokens: int = 1000
+        max_tokens: int = 2500,
+        ai_mode: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Sends an asynchronous chat completion request.
-        - In PRODUCTION_BHARATCODE mode: calls real BharatCode endpoint; fails explicitly if unavailable.
+        - In PRODUCTION_LIVE / PRODUCTION_BHARATCODE mode: calls real BharatCode endpoint; fails explicitly if unavailable.
         - In DEV_SIMULATION mode: runs local deterministic Indic engine with explicit labels.
         """
+        effective_mode = (ai_mode or self.ai_mode or getattr(settings, "AI_MODE", "DEV_SIMULATION")).upper()
+        is_live_call = effective_mode in ("PRODUCTION_LIVE", "PRODUCTION_BHARATCODE")
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -65,8 +147,8 @@ class BharatCodeClient:
         if response_format:
             payload["response_format"] = response_format
 
-        # 1. PRODUCTION BHARATCODE MODE
-        if self.ai_mode == "PRODUCTION_BHARATCODE":
+        # 1. LIVE PRODUCTION BHARATCODE MODE
+        if is_live_call:
             masked_key = f"{self.api_key[:4]}...{self.api_key[-4:]}" if len(self.api_key) > 8 else "***"
             logger.info(f"Dispatching live request to BharatCode API: {self.base_url} (Model: {self.model_name})")
             try:
@@ -78,16 +160,18 @@ class BharatCodeClient:
                     )
                     if response.status_code == 200:
                         data = response.json()
-                        content = data["choices"][0]["message"]["content"]
+                        choices = data.get("choices", [])
+                        msg = choices[0].get("message", {}) if choices else {}
+                        content = msg.get("content") or msg.get("reasoning_content") or ""
                         return {
                             "content": content,
                             "raw": data,
                             "live_api": True,
                             "source": "BHARATCODE_LIVE",
-                            "ai_mode": "PRODUCTION_BHARATCODE",
+                            "ai_mode": effective_mode,
                             "model": self.model_name
                         }
-                    
+
                     # Production mode must NOT silently fall back
                     error_text = response.text
                     logger.error(f"BharatCode API rejected request with HTTP {response.status_code}: {error_text}")
@@ -113,6 +197,18 @@ class BharatCodeClient:
         sim_result["notice"] = "DEVELOPMENT SIMULATION — Deterministic Indic simulation (Not a live BharatCode inference response)."
         return sim_result
 
+    async def generate_completion(self, prompt: str, max_tokens: int = 500, temperature: float = 0.2) -> Dict[str, Any]:
+        """Generates text completion using chat_completion under the hood."""
+        messages = [{"role": "user", "content": prompt}]
+        res = await self.chat_completion(messages, temperature=temperature, max_tokens=max_tokens)
+        return {
+            "text": res.get("content", ""),
+            "raw": res.get("raw"),
+            "live_api": res.get("live_api", False),
+            "source": res.get("source", "DEV_SIMULATION"),
+            "ai_mode": res.get("ai_mode", "DEV_SIMULATION")
+        }
+
     def _simulate_indic_llm_response(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """
         Simulates BharatCode Indic LLM response for local testing and deterministic validation.
@@ -123,7 +219,6 @@ class BharatCodeClient:
 
         # 1. Classification Query
         if "narration:" in user_lower or "analyze the following indian merchant transaction" in user_lower:
-            # Extract just the narration text between quotes or lines
             import re
             narration_match = re.search(r'narration:\s*"([^"]+)"', user_msg, re.IGNORECASE)
             extracted_narration = narration_match.group(1) if narration_match else user_msg
@@ -142,7 +237,7 @@ class BharatCodeClient:
     def _simulate_transaction_classification(self, prompt_text: str) -> str:
         """Rule-based Indic merchant classifier simulating BharatCode's inference."""
         p = prompt_text.lower()
-        
+
         # Determine category & details based on Indian keywords
         if any(w in p for w in ["cement", "sariya", "loha", "brick", "raw material", "kaccha mal", "inventory", "stock"]):
             res = {
@@ -222,7 +317,6 @@ class BharatCodeClient:
                 "rationale": "Inward payment for goods or services delivered, taxable outward supply."
             }
         elif any(w in p for w in ["payment to", "transfer to", "paid to", "sent to"]) and len(p.split()) <= 4:
-            # Low confidence generic payment
             res = {
                 "category": "Uncategorized",
                 "sub_category": "Generic Transfer",
@@ -244,7 +338,7 @@ class BharatCodeClient:
                 "confidence_score": 0.75,
                 "rationale": "Standard business operating outflow."
             }
-            
+
         return json.dumps(res, indent=2)
 
     def _simulate_gst_statutory_response(self, prompt_text: str) -> str:
@@ -288,11 +382,31 @@ class BharatCodeClient:
         narration: str,
         amount: float,
         direction: str = "DEBIT",
-        counterparty_hint: str = ""
+        counterparty_hint: str = "",
+        ai_mode: Optional[str] = None
     ) -> Dict[str, Any]:
         """Convenience method to classify an Indian MSME transaction."""
+        effective_mode = (ai_mode or self.ai_mode or getattr(settings, "AI_MODE", "DEV_SIMULATION")).upper()
+        is_live_call = effective_mode in ("PRODUCTION_LIVE", "PRODUCTION_BHARATCODE")
+
+        if not narration or not narration.strip():
+            return {
+                "category": "Uncategorized",
+                "sub_category": None,
+                "counterparty_name": None,
+                "is_business_expense": False,
+                "suggested_hsn_sac": None,
+                "gst_rate": 0.0,
+                "confidence_score": 0.0,
+                "rationale": "Empty transaction narration provided",
+                "source": "VALIDATION_FAILED",
+                "ai_mode": effective_mode,
+                "live_api": False,
+                "accounting_suggestions": []
+            }
+
         user_prompt = PROMPT_CLASSIFY_TRANSACTION.format(
-            narration=narration,
+            narration=narration.strip(),
             amount=amount,
             direction=direction,
             counterparty_hint=counterparty_hint
@@ -301,11 +415,32 @@ class BharatCodeClient:
             {"role": "system", "content": SYSTEM_TRANSACTION_CLASSIFIER},
             {"role": "user", "content": user_prompt}
         ]
-        result = await self.chat_completion(messages, temperature=0.1)
+
+        # Call chat_completion (raises BharatCodeAPIError if live inference fails)
+        result = await self.chat_completion(messages, temperature=0.1, ai_mode=effective_mode)
+
+        raw_text = (result.get("content") or "").strip()
+        if not raw_text and "raw" in result:
+            raw_choices = result["raw"].get("choices", [])
+            raw_msg = raw_choices[0].get("message", {}) if raw_choices else {}
+            raw_text = (raw_msg.get("content") or raw_msg.get("reasoning_content") or "").strip()
+
+        clean_json_str = raw_text
+        if "```" in clean_json_str:
+            m = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", clean_json_str)
+            if m:
+                clean_json_str = m.group(1).strip()
+        if not (clean_json_str.startswith("{") and clean_json_str.endswith("}")):
+            m_obj = re.search(r"\{[\s\S]*\}", clean_json_str)
+            if m_obj:
+                clean_json_str = m_obj.group(0)
+
         try:
-            parsed = json.loads(result["content"])
+            parsed = json.loads(clean_json_str)
         except Exception as e:
             logger.error(f"Failed to parse LLM output as JSON: {e}")
+            if is_live_call:
+                raise BharatCodeAPIError(f"Model output could not be parsed as valid JSON: {raw_text[:200]}", status_code=502)
             parsed = {
                 "category": "Uncategorized",
                 "sub_category": None,
@@ -316,6 +451,25 @@ class BharatCodeClient:
                 "confidence_score": 0.5,
                 "rationale": "Fallback parsing due to non-JSON output"
             }
+
+        # Authoritative GST Rate Validation
+        raw_gst = parsed.get("gst_rate", 18.0)
+        norm_gst, gst_warning = validate_and_normalize_gst_rate(raw_gst)
+        parsed["gst_rate"] = norm_gst
+        if gst_warning:
+            parsed["gst_advisory"] = gst_warning
+
+        # Authoritative HSN/SAC Validation
+        raw_hsn = parsed.get("suggested_hsn_sac")
+        norm_hsn, hsn_warning = validate_hsn_sac(raw_hsn)
+        parsed["suggested_hsn_sac"] = norm_hsn
+        if hsn_warning:
+            parsed["hsn_advisory"] = hsn_warning
+
+        # Generate Authoritative Accounting Suggestions
+        cat = parsed.get("category", "General Expense")
+        suggestions = generate_accounting_suggestions(cat, direction, norm_gst)
+        parsed["accounting_suggestions"] = suggestions
 
         # Explicitly tag whether inference was live BharatCode or dev simulation
         parsed["source"] = result.get("source", "DEV_SIMULATION")

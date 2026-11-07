@@ -48,6 +48,7 @@ class ProcessTransactionRequest(BaseModel):
     channel: str = "UPI"
     reference_number: Optional[str] = None
     is_interstate: bool = False
+    ai_mode: Optional[str] = None
 
 class ApproveTransactionRequest(BaseModel):
     transaction_id: str
@@ -68,11 +69,22 @@ async def process_transaction_workflow(
     """
     Executes the LangGraph multi-agent financial workflow for an incoming transaction.
     """
+    if not req.raw_narration or not req.raw_narration.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Narration cannot be empty"
+        )
+    if req.amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount must be greater than zero"
+        )
+
     run_id = f"run_{uuid.uuid4().hex[:12]}"
     initial_state = {
         "tenant_id": tenant.id,
         "transaction_id": None,
-        "raw_narration": req.raw_narration,
+        "raw_narration": req.raw_narration.strip(),
         "amount": req.amount,
         "direction": req.direction,
         "channel": req.channel,
@@ -96,14 +108,28 @@ async def process_transaction_workflow(
         "is_interstate": req.is_interstate,
         "rationale": "",
         "ai_source": None,
-        "ai_mode": None,
+        "ai_mode": req.ai_mode,
+        "accounting_suggestions": [],
+        "gst_advisory": None,
+        "hsn_advisory": None,
         "error": None
     }
 
     config = {"configurable": {"thread_id": run_id, "db": db}}
     result = await transaction_graph.ainvoke(initial_state, config=config)
 
-    # If flagged for human review, create transaction in NEEDS_APPROVAL state and log WorkflowRun
+    # If duplicate
+    if result.get("is_duplicate"):
+        return {
+            "status": "DUPLICATE_REJECTED",
+            "message": result.get("error", "Duplicate transaction detected"),
+            "ledger_entries_created": 0,
+            "ai_mode": result.get("ai_mode", "DEV_SIMULATION"),
+            "ai_source": result.get("ai_source", "DEDUPLICATION_GUARD")
+        }
+
+    # If flagged for human review or AI failed, create transaction in NEEDS_APPROVAL state and log WorkflowRun
+    # Crucially: ledger_entries_created is ALWAYS 0 for unapproved transactions
     if result.get("needs_human_review"):
         import datetime
         tx = Transaction(
@@ -117,8 +143,10 @@ async def process_transaction_workflow(
             reference_number=req.reference_number,
             category=result.get("category", "Uncategorized"),
             sub_category=result.get("sub_category"),
+            counterparty_name=result.get("counterparty_name"),
+            hsn_sac_code=result.get("hsn_sac_code"),
             tax_rate=Decimal(str(result.get("gst_rate", 0.0))),
-            confidence_score=result.get("confidence_score", 0.5),
+            confidence_score=result.get("confidence_score", 0.0),
             status="NEEDS_APPROVAL",
             is_reconciled=False
         )
@@ -141,21 +169,25 @@ async def process_transaction_workflow(
             "status": "NEEDS_APPROVAL",
             "run_id": run_id,
             "transaction_id": tx.id,
-            "confidence_score": result.get("confidence_score"),
-            "category": result.get("category"),
+            "confidence_score": result.get("confidence_score", 0.0),
+            "category": result.get("category", "Uncategorized"),
+            "sub_category": result.get("sub_category"),
+            "counterparty_name": result.get("counterparty_name"),
+            "suggested_hsn_sac": result.get("hsn_sac_code"),
+            "gst_rate": result.get("gst_rate", 0.0),
+            "transaction_type": req.direction,
             "rationale": result.get("rationale"),
             "ai_mode": result.get("ai_mode", "DEV_SIMULATION"),
             "ai_source": result.get("ai_source", "DEV_SIMULATION"),
+            "live_api": result.get("live_api", False),
+            "accounting_suggestions": result.get("accounting_suggestions", []),
+            "gst_advisory": result.get("gst_advisory"),
+            "hsn_advisory": result.get("hsn_advisory"),
             "is_anomaly": result.get("is_anomaly", False),
             "anomaly_reasons": result.get("anomaly_reasons", []),
-            "message": "Transaction flagged for human approval (low confidence or anomaly detected)."
-        }
-
-    # If duplicate
-    if result.get("is_duplicate"):
-        return {
-            "status": "DUPLICATE_REJECTED",
-            "message": result.get("error")
+            "ledger_entries_created": 0,
+            "error": result.get("error"),
+            "message": "Transaction flagged for human review/approval."
         }
 
     # Successfully auto-approved and posted to ledger
@@ -164,12 +196,22 @@ async def process_transaction_workflow(
         "run_id": run_id,
         "transaction_id": result.get("transaction_id"),
         "category": result.get("category"),
+        "sub_category": result.get("sub_category"),
+        "counterparty_name": result.get("counterparty_name"),
+        "suggested_hsn_sac": result.get("hsn_sac_code"),
+        "gst_rate": result.get("gst_rate", 0.0),
+        "transaction_type": req.direction,
         "confidence_score": result.get("confidence_score"),
-        "ledger_entries_created": result.get("ledger_entries_created"),
+        "ledger_entries_created": result.get("ledger_entries_created", 0),
         "reconciled_receipt_id": result.get("reconciled_receipt_id"),
         "ai_mode": result.get("ai_mode", "DEV_SIMULATION"),
         "ai_source": result.get("ai_source", "DEV_SIMULATION"),
-        "rationale": result.get("rationale")
+        "live_api": result.get("live_api", False),
+        "accounting_suggestions": result.get("accounting_suggestions", []),
+        "gst_advisory": result.get("gst_advisory"),
+        "hsn_advisory": result.get("hsn_advisory"),
+        "rationale": result.get("rationale"),
+        "message": "Autonomous Decision: Auto-Approved & Ledger Posted"
     }
 
 @router.get("/approval-queue")
@@ -228,6 +270,9 @@ def approve_transaction(
         "status": "APPROVED_AND_POSTED",
         "transaction_id": tx.id,
         "category": tx.category,
+        "sub_category": tx.sub_category,
+        "counterparty_name": tx.counterparty_name,
+        "tax_rate": float(tx.tax_rate),
         "entries_created": len(entries),
         "total_balanced_amount": f"{sum(e.debit for e in entries):.2f}"
     }

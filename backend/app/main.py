@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config import settings
 from backend.app.core.init_db import init_db
-from backend.app.api.v1 import auth, tenants, ingestion, transactions, ledger, ocr, workflow, gst, rag, analytics, subscription
+from backend.app.api.v1 import auth, tenants, ingestion, transactions, ledger, ocr, workflow, gst, rag, analytics, subscription, command
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -55,3 +55,4 @@ app.include_router(gst.router, prefix=f"{settings.API_V1_STR}/gst", tags=["Deter
 app.include_router(rag.router, prefix=f"{settings.API_V1_STR}/rag", tags=["Multilingual RAG GST Assistant"])
 app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["Cash Flow & MSME Credit Analytics"])
 app.include_router(subscription.router, prefix=f"{settings.API_V1_STR}/subscription", tags=["SaaS Tiers & Audit Trail"])
+app.include_router(command.router, prefix=f"{settings.API_V1_STR}/command", tags=["Autonomous Command Centre"])

@@ -1,14 +1,24 @@
-# Virtual Environment
+# =========================================================================
+# VyaparSetu — Comprehensive Git Ignore Rules
+# =========================================================================
+
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+*.cert
+*.crt
+
+# Python Virtual Environments
 .venv/
 venv/
 ENV/
 env/
-
-# Environment Variables
-.env
-.env.local
-.env.*.local
-*.env
+env.bak/
+venv.bak/
 
 # Python Caches & Bytecode
 __pycache__/
@@ -17,35 +27,59 @@ __pycache__/
 *.so
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# Databases
+# Databases (Local & Testing)
 *.db
 *.db-shm
 *.db-wal
-*.sqlite3
 *.sqlite
-vyaparsetu.db
+*.sqlite3
+vyaparsetu.db*
+test_vyaparsetu.db*
 
-# Storage & Uploads
-backend/storage/tenants/
+# Vector Database & Embeddings
+chroma_db/
+.chroma/
+backend/storage/chroma/
+
+# File Storage, Temp & Uploads
 storage/
 uploads/
+backend/storage/tenants/
+scratch/
+*.tmp
 
-# IDE & OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-
-# Node / Next.js
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/build/
-.next/
-node_modules/
+# Logging
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
+# Node / Next.js Build Outputs
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+frontend/out/
+frontend/build/
+dist/
+build/
+
+# IDE & OS System Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing & Browser Automation Outputs
+test-results/
+playwright-report/
+blob-report/

@@ -25,7 +25,12 @@ def build_financial_knowledge_graph(db: Session, tenant_id: str) -> Dict[str, An
     # 1. Fetch Tenant Context
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
-        raise ValueError(f"Tenant {tenant_id} not found")
+        return {
+            "tenant_id": tenant_id,
+            "summary": {"total_nodes": 0, "total_edges": 0, "entity_type_counts": {}},
+            "nodes": [],
+            "edges": []
+        }
 
     memberships = db.query(Membership).filter(Membership.tenant_id == tenant_id).all()
     accounts = db.query(LedgerAccount).filter(LedgerAccount.tenant_id == tenant_id).all()

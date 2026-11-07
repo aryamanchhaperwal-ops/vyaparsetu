@@ -28,5 +28,9 @@ class TransactionWorkflowState(TypedDict):
     rationale: str
     ai_source: Optional[str]
     ai_mode: Optional[str]
+    live_api: Optional[bool]
+    accounting_suggestions: Optional[List[str]]
+    gst_advisory: Optional[str]
+    hsn_advisory: Optional[str]
     error: Optional[str]
 

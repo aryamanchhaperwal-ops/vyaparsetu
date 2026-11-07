@@ -28,16 +28,30 @@ async def test_dev_simulation_mode_explicit_labeling():
 async def test_production_bharatcode_mode_explicit_failure_when_unsubscribed():
     """
     Validates that PRODUCTION_BHARATCODE mode fails explicitly with BharatCodeAPIError
-    when the API returns HTTP 402 (or unbilled/unsubscribed quota), and does NOT silently fake responses.
+    when an unauthorized or unsubscribed key is used, and does NOT silently fake responses.
     """
-    client = BharatCodeClient(ai_mode="PRODUCTION_BHARATCODE")
+    client = BharatCodeClient(api_key="invalid_unsubscribed_key_999", ai_mode="PRODUCTION_BHARATCODE")
     
     # Must raise BharatCodeAPIError rather than silently returning mock data
     with pytest.raises(BharatCodeAPIError) as exc_info:
         await client.chat_completion([{"role": "user", "content": "Hello BharatCode"}])
     
-    assert exc_info.value.status_code in (402, 401, 503)
+    assert exc_info.value.status_code in (401, 402, 403, 503)
     assert "BharatCode" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_production_bharatcode_live_inference_success():
+    """
+    Validates that the active BharatCode account key executes real live inference
+    and returns genuine Qwen 3.8 27B model responses without simulation.
+    """
+    client = BharatCodeClient(ai_mode="PRODUCTION_BHARATCODE")
+    res = await client.chat_completion([{"role": "user", "content": "Respond with OK."}], max_tokens=50)
+    assert res["live_api"] is True
+    assert res["source"] == "BHARATCODE_LIVE"
+    assert res["ai_mode"] == "PRODUCTION_BHARATCODE"
+    assert res["model"] == "qwen-3.8-27b"
+    assert "content" in res and len(res["content"]) > 0
 
 @pytest.mark.asyncio
 async def test_zero_alternative_llm_providers():

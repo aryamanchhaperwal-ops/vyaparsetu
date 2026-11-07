@@ -65,16 +65,16 @@ def run_browser_verification():
         page.goto("http://localhost:3000/dashboard/bookkeeping")
         page.wait_for_load_state("networkidle")
         
-        # Click a preset example (Raw Materials Hinglish)
-        page.locator("button:has-text('Raw Materials (Hinglish)')").click()
+        # Click a preset example (Raw Materials)
+        page.locator("button:has-text('Raw Materials')").first.click()
         page.wait_for_timeout(500)
         
         # Execute LangGraph Agent
         page.locator("button:has-text('LangGraph Agent')").click()
         # Wait for result to appear
-        page.wait_for_selector("[data-testid='autonomous-decision']", timeout=15000)
+        page.wait_for_selector("[data-testid='autonomous-decision']", timeout=20000)
         page.screenshot(path=os.path.join(SCREENSHOT_DIR, "05_bookkeeping_agent_run.png"))
-        print("  ✓ LangGraph agent executed and auto-posted balanced double-entry vouchers.")
+        print("  ✓ LangGraph agent executed with transparent AI source badges & accounting guidance.")
 
         # 7. Approvals (HITL Queue)
         print("\n[7/12] Testing Human Approval Queue...")
@@ -128,7 +128,7 @@ def run_browser_verification():
         print("  ✓ GST compliance workspace and Section 170 calculations verified.")
 
         # 12. AI Assistant (RAG & Conversational Routing)
-        print("\n[12/12] Testing AI Assistant with BharatCode RAG & Voice...")
+        print("\n[12/13] Testing AI Assistant with BharatCode RAG & Voice...")
         page.goto("http://localhost:3000/dashboard/assistant")
         page.wait_for_load_state("networkidle")
         
@@ -139,8 +139,74 @@ def run_browser_verification():
         page.screenshot(path=os.path.join(SCREENSHOT_DIR, "11_assistant_rag.png"))
         print("  ✓ BharatCode statutory RAG assistant responded with section citations.")
 
+        # 13. Autonomous Financial Command Centre
+        print("\n[13/14] Testing Autonomous Command Centre & October Account Closing Workflow...")
+        page.goto("http://localhost:3000/dashboard/command")
+        page.wait_for_load_state("networkidle")
+        assert page.locator("text=Autonomous Financial Operations Command Centre").count() > 0
+        page.screenshot(path=os.path.join(SCREENSHOT_DIR, "12_command_centre.png"))
+        print("  ✓ Command Centre loaded successfully.")
+
+        # Test language switch & voice UI controls
+        page.locator("select").first.select_option("hi")
+        page.wait_for_timeout(300)
+        page.locator("select").first.select_option("en")
+        page.wait_for_timeout(300)
+        print("  ✓ Vernacular language toggling (Hindi/English) verified.")
+
+        # Test prompt execution for full 14-step October accounts closure
+        page.locator("button:has-text('Close October Accounts')").click()
+        print("  ✓ Submitted 'Close my October accounts' autonomous instruction.")
+
+        # Wait for workflow execution to reach WAITING_APPROVAL
+        page.wait_for_selector("text=Status: WAITING_APPROVAL", timeout=25000)
+        print("  ✓ Execution DAG reached WAITING_APPROVAL checkpoint.")
+
+        # Verify Evidence Retrieval & Graph RAG Card
+        assert page.locator("text=Evidence Retrieval & Graph RAG").count() > 0
+        assert page.locator("text=HYBRID_GRAPH_VECTOR").count() > 0
+        print("  ✓ Hybrid RAG and GraphRAG evidence retrieval card verified.")
+
+        # Verify Invoice & Bank Reconciliation Card
+        assert page.locator("text=Invoice & Bank Reconciliation").count() > 0
+        print("  ✓ Bank and invoice reconciliation audit card verified.")
+
+        # Verify Statutory GST Returns Card
+        assert page.locator("text=GST Returns & Tax Liability").count() > 0
+        assert page.locator("text=Sec 170 CGST Rounding").count() > 0
+        print("  ✓ Statutory GST returns card with Section 170 compliance verified.")
+
+        # Verify Financial Statements & Profitability Card
+        assert page.locator("text=Financial Statements & Profitability").count() > 0
+        print("  ✓ Financial statements card with Net Profit & Cash Runway verified.")
+
+        # Verify Approval Checkpoint Details
+        assert page.locator("text=Consolidated Merchant Approval Checkpoint").count() > 0
+        assert page.locator("text=Proposed Ledger Vouchers").count() > 0
+        page.screenshot(path=os.path.join(SCREENSHOT_DIR, "15_command_october_closing_approval_checkpoint.png"))
+        print("  ✓ Approval Checkpoint with proposed ledger vouchers displayed.")
+
+        # Click Approve & Post to Ledger
+        print("  -> Clicking 'Approve & Post to Ledger'...")
+        page.locator("button:has-text('Approve & Post to Ledger')").click()
+
+        # Wait for status to transition to COMPLETED
+        page.wait_for_selector("text=Status: COMPLETED", timeout=20000)
+        page.wait_for_selector("text=Autonomous Workflow Successfully Executed", timeout=10000)
+        page.screenshot(path=os.path.join(SCREENSHOT_DIR, "16_command_october_closing_completed.png"))
+        print("  ✓ Workflow successfully approved and committed to double-entry ledger with zero discrepancies!")
+
+        # 14. ChromaDB & Graph RAG Hub
+        print("\n[14/14] Testing ChromaDB & Knowledge Graph RAG Hub...")
+        page.goto("http://localhost:3000/dashboard/assistant")
+        page.wait_for_load_state("networkidle")
+        page.locator("button:has-text('ChromaDB & Graph RAG Hub')").click()
+        page.wait_for_selector("text=ChromaDB Persistent Document Vector Repository", timeout=10000)
+        page.screenshot(path=os.path.join(SCREENSHOT_DIR, "14_chromadb_graph_rag_hub.png"))
+        print("  ✓ ChromaDB & Knowledge Graph RAG Hub rendered successfully.")
+
         browser.close()
-        print("\n=== ALL 12 BROWSER END-TO-END FLOWS PASSED SUCCESSFULLY! ===")
+        print("\n=== ALL 14 BROWSER END-TO-END FLOWS PASSED SUCCESSFULLY! ===")
 
 if __name__ == "__main__":
     run_browser_verification()

@@ -12,6 +12,7 @@ interface LanguageContextType {
 
 const translations: Record<Language, Record<string, string>> = {
   en: {
+    command_centre: "Command Centre",
     dashboard: "Dashboard",
     transactions: "Transactions",
     invoices: "Invoices & OCR",
@@ -51,6 +52,7 @@ const translations: Record<Language, Record<string, string>> = {
     action: "Action"
   },
   hi: {
+    command_centre: "कमांड सेंटर (Command Centre)",
     dashboard: "डैशबोर्ड",
     transactions: "लेन-देन (Transactions)",
     invoices: "बिल और रसीदें (OCR)",

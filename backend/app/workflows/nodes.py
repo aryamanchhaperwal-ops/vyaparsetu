@@ -7,7 +7,7 @@ from langchain_core.runnables import RunnableConfig
 from backend.app.core.database import SessionLocal
 from backend.app.models.transaction import Transaction
 from backend.app.models.receipt import Receipt
-from backend.app.llm.client import bharatcode_client
+from backend.app.llm.client import bharatcode_client, BharatCodeAPIError
 from backend.app.services.financial_engine import post_transaction_to_ledger
 from backend.app.services.anomaly_service import detect_transaction_anomalies
 from backend.app.workflows.state import TransactionWorkflowState
@@ -73,30 +73,58 @@ async def classification_node(state: TransactionWorkflowState, config: Optional[
     narration = state["raw_narration"]
     amount = state["amount"]
     direction = state["direction"]
+    req_ai_mode = state.get("ai_mode")
 
-    res = await bharatcode_client.classify_transaction(
-        narration=narration,
-        amount=amount,
-        direction=direction
-    )
+    try:
+        res = await bharatcode_client.classify_transaction(
+            narration=narration,
+            amount=amount,
+            direction=direction,
+            ai_mode=req_ai_mode
+        )
 
-    return {
-        "category": res.get("category", "Uncategorized"),
-        "sub_category": res.get("sub_category"),
-        "counterparty_name": res.get("counterparty_name"),
-        "hsn_sac_code": res.get("suggested_hsn_sac"),
-        "gst_rate": float(res.get("gst_rate", 0.0)),
-        "confidence_score": float(res.get("confidence_score", 0.5)),
-        "rationale": res.get("rationale", ""),
-        "ai_source": res.get("source", "DEV_SIMULATION"),
-        "ai_mode": res.get("ai_mode", "DEV_SIMULATION")
-    }
+        return {
+            "category": res.get("category", "Uncategorized"),
+            "sub_category": res.get("sub_category"),
+            "counterparty_name": res.get("counterparty_name"),
+            "hsn_sac_code": res.get("suggested_hsn_sac"),
+            "gst_rate": float(res.get("gst_rate", 0.0)),
+            "confidence_score": float(res.get("confidence_score", 0.5)),
+            "rationale": res.get("rationale", ""),
+            "ai_source": res.get("source", "DEV_SIMULATION"),
+            "ai_mode": res.get("ai_mode", "DEV_SIMULATION"),
+            "live_api": res.get("live_api", False),
+            "accounting_suggestions": res.get("accounting_suggestions", []),
+            "gst_advisory": res.get("gst_advisory"),
+            "hsn_advisory": res.get("hsn_advisory")
+        }
+    except BharatCodeAPIError as e:
+        logger.error(f"Live BharatCode API classification failure: {e.message}")
+        return {
+            "category": "Uncategorized",
+            "sub_category": None,
+            "counterparty_name": None,
+            "hsn_sac_code": None,
+            "gst_rate": 0.0,
+            "confidence_score": 0.0,
+            "rationale": f"Live BharatCode inference unavailable: {e.message}",
+            "ai_source": "FAILED",
+            "ai_mode": getattr(bharatcode_client, "ai_mode", "PRODUCTION_LIVE"),
+            "live_api": False,
+            "accounting_suggestions": ["AI service unavailable. Manual classification and approval required."],
+            "error": f"Live BharatCode error ({e.status_code}): {e.message}",
+            "needs_human_review": True
+        }
 
 def confidence_router(state: TransactionWorkflowState) -> str:
     """Conditional Edge Router: Decides whether to auto-approve or route to human review queue."""
     if state.get("is_duplicate"):
         return "end_duplicate"
     
+    # If live AI failed or error occurred, ALWAYS route to human review for financial safety
+    if state.get("error") or state.get("ai_source") == "FAILED":
+        return "human_review"
+
     # If high anomaly score, route to human review for financial safety
     if state.get("is_anomaly") and state.get("anomaly_score", 0.0) >= 0.40:
         return "human_review"
@@ -165,6 +193,8 @@ async def ledger_posting_node(state: TransactionWorkflowState, config: Optional[
                 category=state["category"],
                 sub_category=state.get("sub_category"),
                 hsn_sac_code=state.get("hsn_sac_code"),
+                counterparty_name=state.get("counterparty_name"),
+                counterparty_gstin=state.get("counterparty_gstin"),
                 tax_rate=Decimal(str(state.get("gst_rate", 0.0))),
                 confidence_score=state.get("confidence_score", 1.0),
                 status="CONFIRMED"

@@ -29,3 +29,4 @@ def test_parse_rent_narration():
     assert parsed["amount"] == 20000.0
     assert parsed["direction"] == "DEBIT"
     assert parsed["category"] == "Rent & Utilities"
+

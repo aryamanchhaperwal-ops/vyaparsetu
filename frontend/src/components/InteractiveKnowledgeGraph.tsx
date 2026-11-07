@@ -557,3 +557,4 @@ export default function InteractiveKnowledgeGraph({ data }: KnowledgeGraphProps)
     </div>
   );
 }
+

@@ -25,8 +25,10 @@ class Settings(BaseSettings):
     AI_MODE: str = "DEV_SIMULATION"  # "PRODUCTION_BHARATCODE" or "DEV_SIMULATION"
     AI_PROVIDER_LABEL: str = "BharatCode Qwen 3.8 27B"
 
-    # Storage
+    # Storage & ChromaDB Vector Store
     STORAGE_DIR: str = str(BASE_DIR / "backend" / "storage")
+    CHROMADB_DIR: str = str(BASE_DIR / "backend" / "storage" / "chromadb")
+    EMBEDDING_PROVIDER: str = "default_onnx"  # "default_onnx" or "deterministic_indic"
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),

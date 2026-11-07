@@ -23,24 +23,23 @@ def test_ingestion_tenant():
         db.commit()
         db.refresh(tenant)
 
+    # Clean up any leftover transactions from previous test runs to ensure idempotency
+    db.query(Transaction).filter(Transaction.tenant_id == tenant.id).delete()
+    db.commit()
+
     # Seed an existing reference to test duplicate detection
-    existing_tx = db.query(Transaction).filter(
-        Transaction.tenant_id == tenant.id,
-        Transaction.reference_number == "UTR_EXISTING_999"
-    ).first()
-    if not existing_tx:
-        existing_tx = Transaction(
-            tenant_id=tenant.id,
-            transaction_date=datetime.date(2026, 11, 1),
-            description="Existing Bank Outflow",
-            raw_narration="UPI/UTR_EXISTING_999/Old supplier",
-            amount=Decimal("5000.00"),
-            type="DEBIT",
-            channel="UPI",
-            reference_number="UTR_EXISTING_999"
-        )
-        db.add(existing_tx)
-        db.commit()
+    existing_tx = Transaction(
+        tenant_id=tenant.id,
+        transaction_date=datetime.date(2026, 11, 1),
+        description="Existing Bank Outflow",
+        raw_narration="UPI/UTR_EXISTING_999/Old supplier",
+        amount=Decimal("5000.00"),
+        type="DEBIT",
+        channel="UPI",
+        reference_number="UTR_EXISTING_999"
+    )
+    db.add(existing_tx)
+    db.commit()
 
     yield db, tenant
     db.close()

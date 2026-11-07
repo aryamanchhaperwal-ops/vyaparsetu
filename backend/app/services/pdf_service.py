@@ -7,14 +7,19 @@ from pypdf import PdfReader
 from backend.app.services.ingestion import parse_indian_date, parse_currency
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
-    """Extracts raw text streams from digital PDF documents."""
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    text_parts = []
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text_parts.append(page_text)
-    return "\n".join(text_parts)
+    """Extracts raw text streams from digital PDF documents with safe fallback for text/corrupted bytes."""
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        text_parts = []
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text_parts.append(page_text)
+        if text_parts:
+            return "\n".join(text_parts)
+    except Exception:
+        pass
+    return pdf_bytes.decode("utf-8", errors="replace")
 
 def parse_bank_statement_pdf(pdf_bytes: bytes) -> List[Dict[str, Any]]:
     """
