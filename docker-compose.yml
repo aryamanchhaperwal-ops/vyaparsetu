@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vyaparsetu-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - BHARATCODE_BASE_URL=https://bharatcode.ai/api/model/v1
+      - BHARATCODE_MODEL_NAME=qwen-3.8-27b
+      - AI_MODE=PRODUCTION_BHARATCODE
+      - BHARATCODE_API_KEY=${BHARATCODE_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-vyaparsetu-production-secret-key-change-in-prod}
+      - DATABASE_URL=sqlite:////app/backend/storage/vyaparsetu.db
+      - CHROMADB_DIR=/app/backend/storage/chromadb
+      - STORAGE_DIR=/app/backend/storage
+    volumes:
+      - vyaparsetu-data:/app/backend/storage
+    restart: always
+
+volumes:
+  vyaparsetu-data:
+
