@@ -1,0 +1,41 @@
+# =========================================================================
+# BharatCode Integration Details
+# Project: Lekha (VyaparSetu)
+# Hackathon: BharatCode Build League 2026
+# =========================================================================
+
+Project Name:
+Lekha (VyaparSetu)
+
+Hackathon:
+BharatCode Build League 2026
+
+Integration Description:
+Lekha (VyaparSetu) uses the official BharatCode Hosted API as its sole runtime Large Language Model (LLM) provider. The system routes all natural language processing, Indian mercantile categorization, statutory GST queries, and agentic multi-step planning tasks through BharatCode. No third-party LLMs (such as OpenAI, Anthropic, or Google Gemini) or local runtime models are utilized as fallbacks in production mode.
+
+Configured Provider and Model:
+- API Base URL: https://bharatcode.ai/api/model/v1
+- Chat Completions Endpoint: https://bharatcode.ai/api/model/v1/chat/completions
+- Target Model: qwen-3.8-27b
+- Protocol: OpenAI-compatible Chat Completions API
+- Mode: PRODUCTION_BHARATCODE / PRODUCTION_LIVE (with explicit DEV_SIMULATION mode for offline testing)
+
+AI Functionality Powered by BharatCode:
+1. Indic Transaction Classification: Analyzes multi-dialect Indian business narrations (Hindi, Hinglish, English, regional mercantile phrasing) and suggests appropriate ledger accounts, GST rates, and HSN/SAC codes.
+2. LangGraph Supervisor Planning: Orchestrates specialized sub-agents across document ingestion, invoice reconciliation, anomaly detection, and period closing.
+3. Statutory GST RAG Assistant: Grounds tax guidance in the Central Goods and Services Tax (CGST) Act, 2017, citing specific legal sections (e.g., Section 16 for ITC conditions, Section 17(5) for blocked credits).
+4. Conversational Financial Chatbot: Powers natural language financial queries, vendor spend summaries, and multi-turn analytical follow-ups.
+
+Environment Configuration Instructions:
+1. Copy .env.example to .env in the project root:
+   cp .env.example .env
+2. Configure your BharatCode credentials in .env:
+   BHARATCODE_API_KEY="your_actual_bharatcode_api_key_here"
+   BHARATCODE_BASE_URL="https://bharatcode.ai/api/model/v1"
+   BHARATCODE_MODEL_NAME="qwen-3.8-27b"
+   AI_MODE="PRODUCTION_BHARATCODE"
+3. The backend loads these variables via backend/app/config.py using pydantic-settings and python-dotenv.
+
+Security & Credential Statement:
+BharatCode API keys must NEVER be committed to version control, embedded in source code, or exposed to the frontend browser bundle. All requests to BharatCode originate strictly from the backend server environment. The .env file is permanently ignored via .gitignore.
+

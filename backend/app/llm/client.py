@@ -151,35 +151,77 @@ class BharatCodeClient:
         if is_live_call:
             masked_key = f"{self.api_key[:4]}...{self.api_key[-4:]}" if len(self.api_key) > 8 else "***"
             logger.info(f"Dispatching live request to BharatCode API: {self.base_url} (Model: {self.model_name})")
+            stream_payload = dict(payload)
+            stream_payload["stream"] = True
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.post(
+                # Use extended timeout of 180s to accommodate model worker queue heartbeats
+                async with httpx.AsyncClient(timeout=180.0) as client:
+                    async with client.stream(
+                        "POST",
                         f"{self.base_url}/chat/completions",
-                        json=payload,
+                        json=stream_payload,
                         headers=headers
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        choices = data.get("choices", [])
-                        msg = choices[0].get("message", {}) if choices else {}
-                        content = msg.get("content") or msg.get("reasoning_content") or ""
-                        return {
-                            "content": content,
-                            "raw": data,
-                            "live_api": True,
-                            "source": "BHARATCODE_LIVE",
-                            "ai_mode": effective_mode,
-                            "model": self.model_name
-                        }
+                    ) as response:
+                        if response.status_code == 200:
+                            content_chunks = []
+                            reasoning_chunks = []
+                            model_id = self.model_name
+                            usage_data = {}
+                            async for raw_line in response.aiter_lines():
+                                line = raw_line.strip()
+                                if not line or line.startswith(":"):
+                                    continue
+                                if line.startswith("data: "):
+                                    d_str = line[6:].strip()
+                                    if d_str == "[DONE]":
+                                        break
+                                    try:
+                                        chunk = json.loads(d_str)
+                                        model_id = chunk.get("model", model_id)
+                                        if "usage" in chunk:
+                                            usage_data = chunk["usage"]
+                                        ch_list = chunk.get("choices", [])
+                                        if ch_list:
+                                            delta = ch_list[0].get("delta", {})
+                                            if delta.get("content"):
+                                                content_chunks.append(delta["content"])
+                                            if delta.get("reasoning_content"):
+                                                reasoning_chunks.append(delta["reasoning_content"])
+                                    except Exception:
+                                        pass
 
-                    # Production mode must NOT silently fall back
-                    error_text = response.text
-                    logger.error(f"BharatCode API rejected request with HTTP {response.status_code}: {error_text}")
-                    raise BharatCodeAPIError(
-                        f"BharatCode API returned HTTP {response.status_code}: {error_text}",
-                        status_code=response.status_code,
-                        response_body=error_text
-                    )
+                            full_content = "".join(content_chunks).strip()
+                            full_reasoning = "".join(reasoning_chunks).strip()
+                            final_text = full_content or full_reasoning
+
+                            return {
+                                "content": final_text,
+                                "raw": {
+                                    "model": model_id,
+                                    "choices": [{
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": full_content,
+                                            "reasoning_content": full_reasoning
+                                        }
+                                    }],
+                                    "usage": usage_data
+                                },
+                                "live_api": True,
+                                "source": "BHARATCODE_LIVE",
+                                "ai_mode": effective_mode,
+                                "model": model_id
+                            }
+
+                        # Production mode must NOT silently fall back
+                        error_text = await response.aread()
+                        error_str = error_text.decode("utf-8", errors="ignore")
+                        logger.error(f"BharatCode API rejected request with HTTP {response.status_code}: {error_str}")
+                        raise BharatCodeAPIError(
+                            f"BharatCode API returned HTTP {response.status_code}: {error_str}",
+                            status_code=response.status_code,
+                            response_body=error_str
+                        )
             except httpx.RequestError as e:
                 logger.error(f"BharatCode network error: {e}")
                 raise BharatCodeAPIError(

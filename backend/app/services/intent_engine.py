@@ -149,7 +149,13 @@ async def interpret_intent_with_llm(
         system_prompt = (
             "You are Lekha Intent Engine for MSME accounting. Interpret the merchant's natural language request. "
             "Output a JSON object with: user_objective, intent_type, entities, selected_tools, requires_approval, "
-            "missing_information (list), clarification_question."
+            "missing_information (list), clarification_question.\n"
+            "Valid intent_type: GET_TOP_VENDORS, FIND_UNMATCHED_PAYMENTS, COMPARE_EXPENSES, SEARCH_OVERDUE_INVOICES, "
+            "EXPLAIN_CASH_DECREASE, GET_GST_ITC_STATUS, TRACE_VENDOR_TRAIL, EXPORT_FINANCIAL_SUMMARY, "
+            "SEARCH_TRANSACTIONS, GENERAL_QUERY, UNSUPPORTED, AMBIGUOUS.\n"
+            "Valid selected_tools: get_top_vendors, find_unmatched_vendor_payments, compare_expenses, "
+            "search_overdue_invoices, explain_cash_decrease, get_gst_itc_status, trace_vendor_payment_trail, "
+            "generate_financial_summary_export, search_transactions."
         )
         try:
             resp = await bharatcode_client.generate_completion(
@@ -160,30 +166,40 @@ async def interpret_intent_with_llm(
             json_match = re.search(r"\{.*\}", raw_text, re.DOTALL)
             if json_match:
                 parsed_json = json.loads(json_match.group(0))
-                # Build plan steps dynamically from selected tools
                 tools = parsed_json.get("selected_tools") or []
-                steps = []
-                for idx, t in enumerate(tools, 1):
-                    steps.append({
-                        "step": idx,
-                        "title": f"Execute {t.replace('_', ' ').title()}",
-                        "agent": f"{t.replace('_', ' ').title()} Agent",
-                        "status": "PENDING",
-                        "details": f"Invoking tool {t}"
-                    })
-                return UserIntentPlan(
-                    user_objective=parsed_json.get("user_objective", instruction),
-                    intent_type=parsed_json.get("intent_type", "GENERAL_QUERY"),
-                    entities=parsed_json.get("entities", {}),
-                    selected_tools=tools,
-                    plan_steps=steps,
-                    missing_information=parsed_json.get("missing_information", []),
-                    clarification_question=parsed_json.get("clarification_question"),
-                    requires_approval=parsed_json.get("requires_approval", False),
-                    language=eff_lang,
-                    ai_mode="PRODUCTION_LIVE",
-                    source="BHARATCODE_LIVE"
-                )
+                raw_intent = str(parsed_json.get("intent_type", "GENERAL_QUERY")).upper()
+
+                valid_intents = {
+                    "GET_TOP_VENDORS", "FIND_UNMATCHED_PAYMENTS", "COMPARE_EXPENSES",
+                    "SEARCH_OVERDUE_INVOICES", "EXPLAIN_CASH_DECREASE", "GET_GST_ITC_STATUS",
+                    "TRACE_VENDOR_TRAIL", "EXPORT_FINANCIAL_SUMMARY", "SEARCH_TRANSACTIONS",
+                    "GENERAL_QUERY", "UNSUPPORTED", "AMBIGUOUS"
+                }
+
+                # Only return if intent is recognized and has tools or is a known boundary
+                if tools and raw_intent in valid_intents and raw_intent not in ("GENERAL_QUERY", "UNSUPPORTED"):
+                    steps = []
+                    for idx, t in enumerate(tools, 1):
+                        steps.append({
+                            "step": idx,
+                            "title": f"Execute {t.replace('_', ' ').title()}",
+                            "agent": f"{t.replace('_', ' ').title()} Agent",
+                            "status": "PENDING",
+                            "details": f"Invoking tool {t}"
+                        })
+                    return UserIntentPlan(
+                        user_objective=parsed_json.get("user_objective", instruction),
+                        intent_type=raw_intent,
+                        entities=parsed_json.get("entities", {}),
+                        selected_tools=tools,
+                        plan_steps=steps,
+                        missing_information=parsed_json.get("missing_information", []),
+                        clarification_question=parsed_json.get("clarification_question"),
+                        requires_approval=parsed_json.get("requires_approval", False),
+                        language=eff_lang,
+                        ai_mode="PRODUCTION_LIVE",
+                        source="BHARATCODE_LIVE"
+                    )
         except Exception as e:
             logger.error(f"Live BharatCode intent planning failed: {e}")
             if is_live:
